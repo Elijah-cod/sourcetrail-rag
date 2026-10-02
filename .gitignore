@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Local config / secrets
+.env
+
+# Local tooling (Superpowers skills clone)
+.claude/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
