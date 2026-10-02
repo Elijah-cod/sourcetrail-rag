@@ -45,7 +45,7 @@ written by hand so every step is visible and explainable.
 
 ## 3. Architecture
 
-One FastAPI service, one Postgres database.
+One FastAPI service, one Postgres database. All backend code lives in `backend/` (paths below are relative to it); the UI lives in `frontend/`.
 
 ```
 app/
