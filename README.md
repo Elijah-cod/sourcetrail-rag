@@ -17,6 +17,7 @@ docker compose up -d db          # Postgres 17 + pgvector on localhost:5432 (run
 cd backend
 cp .env.example .env
 uv sync                          # create .venv and install dependencies
+uv run python -m app.migrate     # create/update database tables
 uv run uvicorn app.main:app --reload
 # open http://localhost:8000/health  and  http://localhost:8000/docs
 uv run pytest                    # run tests
