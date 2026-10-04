@@ -96,7 +96,11 @@ def extract_docx(filename: str, data: bytes) -> ExtractedDocument:
 _MD_HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
 
 
-def extract_markdown(filename: str, data: bytes) -> ExtractedDocument:
+def split_markdown(text: str) -> tuple[str | None, list[Section]]:
+    """Split Markdown text into sections at headings. Returns (title, sections).
+
+    Shared by Markdown files and web pages (which trafilatura turns into Markdown).
+    """
     sections: list[Section] = []
     heading: str | None = None
     title: str | None = None
@@ -104,12 +108,12 @@ def extract_markdown(filename: str, data: bytes) -> ExtractedDocument:
     in_code_block = False
 
     def flush() -> None:
-        text = clean_text("\n".join(buffer))
-        if text:
-            sections.append(Section(text=text, heading=heading))
+        section_text = clean_text("\n".join(buffer))
+        if section_text:
+            sections.append(Section(text=section_text, heading=heading))
         buffer.clear()
 
-    for line in _decode(data).splitlines():
+    for line in text.splitlines():
         if line.strip().startswith("```"):
             in_code_block = not in_code_block   # '#' inside code is not a heading
         match = None if in_code_block else _MD_HEADING.match(line)
@@ -121,7 +125,11 @@ def extract_markdown(filename: str, data: bytes) -> ExtractedDocument:
         else:
             buffer.append(line)
     flush()
+    return title, sections
 
+
+def extract_markdown(filename: str, data: bytes) -> ExtractedDocument:
+    title, sections = split_markdown(_decode(data))
     return ExtractedDocument(title=title or _stem(filename), source_type="md", sections=sections)
 
 
