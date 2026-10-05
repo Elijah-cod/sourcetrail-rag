@@ -1,16 +1,14 @@
 """Search over stored chunks: vector (semantic) search and keyword (full-text) search.
 
-Run a quick search from the terminal (shows both methods side by side):
-    uv run python -m app.search "your question"
+To try searches from the terminal, see app/retrieve.py.
 """
 
-import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from uuid import UUID
 
 import psycopg
 
-from app.store import DEMO_WORKSPACE_ID, to_pgvector
+from app.store import to_pgvector
 
 
 @dataclass
@@ -26,6 +24,8 @@ class SearchHit:
     page: int | None
     section: str | None
     score: float          # higher = better; meaning depends on the search method
+    # Filled in by fusion: this chunk's position in each list, e.g. {"vector": 1, "keyword": 4}
+    ranks: dict[str, int] = field(default_factory=dict)
 
 
 # Columns every search returns, in SearchHit order. "c" = chunks, "d" = documents.
@@ -106,27 +106,3 @@ def has_search_terms(conn: psycopg.Connection, query_text: str) -> bool:
     row = conn.execute("SELECT plainto_tsquery('english', %s)::text <> ''", (query_text,)).fetchone()
     return bool(row[0])
 
-
-def main() -> None:
-    from app.config import get_settings
-    from app.embed import get_embedder
-
-    question = " ".join(sys.argv[1:]) or "What happened to revenue in 2024?"
-    workspaces = [DEMO_WORKSPACE_ID]
-    with psycopg.connect(get_settings().database_url, autocommit=True) as conn:
-        results = {
-            "Vector search": vector_search(conn, get_embedder().embed_query(question), workspaces, limit=5),
-            "Keyword search": keyword_search(conn, question, workspaces, limit=5),
-        }
-    print(f"Question: {question}")
-    for method, hits in results.items():
-        print(f"\n== {method} ==")
-        if not hits:
-            print("   (no results)")
-        for i, hit in enumerate(hits, start=1):
-            print(f"{i}. [{hit.score:.3f}] {hit.chunk_id}  ({hit.document_title})")
-            print(f"   {hit.text[:120]!r}")
-
-
-if __name__ == "__main__":
-    main()
