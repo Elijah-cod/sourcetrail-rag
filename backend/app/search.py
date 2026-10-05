@@ -1,6 +1,6 @@
-"""Search over stored chunks. This file: vector (semantic) search.
+"""Search over stored chunks: vector (semantic) search and keyword (full-text) search.
 
-Run a quick search from the terminal:
+Run a quick search from the terminal (shows both methods side by side):
     uv run python -m app.search "your question"
 """
 
@@ -69,17 +69,63 @@ def _try_setting(conn: psycopg.Connection, statement: str) -> None:
         pass
 
 
+def keyword_search(conn: psycopg.Connection, query_text: str, workspace_ids: list[UUID],
+                   limit: int = 20, year: int | None = None) -> list[SearchHit]:
+    """The `limit` chunks that best match the question's words (Postgres full-text search).
+
+    Catches what vectors miss: exact names, codes and rare terms like "E1234" or "pgvector".
+    """
+    sql = f"""
+        WITH q AS (
+            -- plainto_tsquery: lowercase, drop stop words ("why", "did", "in"), stem
+            -- ("decline" -> "declin"), and join the words with AND (&).
+            -- AND is too strict for questions (every word must appear), so swap & for OR (|):
+            -- a chunk matching some words is found; one matching more words ranks higher.
+            SELECT replace(plainto_tsquery('english', %(text)s)::text, ' & ', ' | ')::tsquery AS query
+        )
+        SELECT {HIT_COLUMNS},
+               ts_rank_cd(c.tsv, q.query, 32) AS score   -- 32: squash the score into 0..1
+        FROM chunks c
+        JOIN documents d ON d.id = c.document_id
+        CROSS JOIN q
+        WHERE c.tsv @@ q.query                              -- "@@" = does the chunk match?
+          AND d.workspace_id = ANY(%(workspaces)s)
+          AND (%(year)s::int IS NULL OR d.published_year = %(year)s::int)
+        ORDER BY score DESC, c.id                            -- c.id breaks ties consistently
+        LIMIT %(limit)s
+    """
+    if not has_search_terms(conn, query_text):
+        return []      # e.g. "what is it?" is all stop words: nothing to look for
+    rows = conn.execute(sql, {"text": query_text, "workspaces": list(workspace_ids),
+                              "year": year, "limit": limit}).fetchall()
+    return [SearchHit(*row) for row in rows]
+
+
+def has_search_terms(conn: psycopg.Connection, query_text: str) -> bool:
+    """False when the text has no searchable words left after removing stop words."""
+    row = conn.execute("SELECT plainto_tsquery('english', %s)::text <> ''", (query_text,)).fetchone()
+    return bool(row[0])
+
+
 def main() -> None:
     from app.config import get_settings
     from app.embed import get_embedder
 
     question = " ".join(sys.argv[1:]) or "What happened to revenue in 2024?"
+    workspaces = [DEMO_WORKSPACE_ID]
     with psycopg.connect(get_settings().database_url, autocommit=True) as conn:
-        hits = vector_search(conn, get_embedder().embed_query(question), [DEMO_WORKSPACE_ID], limit=5)
-    print(f"Question: {question}\n")
-    for i, hit in enumerate(hits, start=1):
-        print(f"{i}. [{hit.score:.3f}] {hit.chunk_id}  ({hit.document_title})")
-        print(f"   {hit.text[:120]!r}")
+        results = {
+            "Vector search": vector_search(conn, get_embedder().embed_query(question), workspaces, limit=5),
+            "Keyword search": keyword_search(conn, question, workspaces, limit=5),
+        }
+    print(f"Question: {question}")
+    for method, hits in results.items():
+        print(f"\n== {method} ==")
+        if not hits:
+            print("   (no results)")
+        for i, hit in enumerate(hits, start=1):
+            print(f"{i}. [{hit.score:.3f}] {hit.chunk_id}  ({hit.document_title})")
+            print(f"   {hit.text[:120]!r}")
 
 
 if __name__ == "__main__":
