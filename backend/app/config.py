@@ -17,6 +17,15 @@ class Settings(BaseSettings):
 
     # Cross-encoder reranker (FastEmbed / ONNX, ~80 MB, CPU).
     reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
+    # Below this reranker score (0..1) we treat the sources as irrelevant and skip the LLM.
+    min_relevance: float = 0.01
+
+    # LLM: any OpenAI-compatible chat API. Default: Groq's free tier.
+    # Local alternative (Ollama): LLM_BASE_URL=http://localhost:11434/v1  LLM_MODEL=llama3.2
+    llm_base_url: str = "https://api.groq.com/openai/v1"
+    llm_api_key: str = ""                      # set LLM_API_KEY in .env, never in code
+    llm_model: str = "llama-3.3-70b-versatile"
+    llm_timeout_seconds: float = 30.0
 
 
 @lru_cache
