@@ -65,3 +65,43 @@ def delete_document(conn: psycopg.Connection, workspace_id: UUID, document_id: U
         "DELETE FROM documents WHERE id = %s AND workspace_id = %s", (document_id, workspace_id)
     )
     return cur.rowcount > 0
+
+
+# ---------- reading ----------
+
+def list_documents(conn: psycopg.Connection, workspace_ids: list[UUID]) -> list[dict]:
+    """Documents visible to a visitor (their own + demo), newest first, with chunk counts."""
+    rows = conn.execute(
+        """
+        SELECT d.id, d.title, d.source_type, d.source_uri, d.published_year, d.created_at,
+               d.workspace_id = %(demo)s AS is_demo,
+               (SELECT count(*) FROM chunks c WHERE c.document_id = d.id) AS chunk_count
+        FROM documents d
+        WHERE d.workspace_id = ANY(%(workspaces)s)
+        ORDER BY is_demo, d.created_at DESC
+        """,
+        {"demo": DEMO_WORKSPACE_ID, "workspaces": list(workspace_ids)},
+    ).fetchall()
+    keys = ("id", "title", "source_type", "source_uri", "published_year", "created_at",
+            "is_demo", "chunk_count")
+    return [dict(zip(keys, row)) for row in rows]
+
+
+def get_chunk(conn: psycopg.Connection, workspace_ids: list[UUID], document_id: UUID,
+              chunk_id: str) -> dict | None:
+    """One chunk with its document's details, or None if missing / not visible to this visitor."""
+    row = conn.execute(
+        """
+        SELECT c.id, c.document_id, d.title, d.source_type, d.source_uri, c.ord, c.page,
+               c.section, c.text
+        FROM chunks c
+        JOIN documents d ON d.id = c.document_id
+        WHERE c.document_id = %s AND c.id = %s AND d.workspace_id = ANY(%s)
+        """,
+        (document_id, chunk_id, list(workspace_ids)),
+    ).fetchone()
+    if row is None:
+        return None
+    keys = ("chunk_id", "document_id", "document_title", "source_type", "source_uri", "ord",
+            "page", "section", "text")
+    return dict(zip(keys, row))

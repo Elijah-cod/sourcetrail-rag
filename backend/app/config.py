@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 1500                 # room for brief reasoning + a concise answer
     llm_timeout_seconds: float = 30.0
 
+    # Uploads
+    max_upload_mb: int = 10
+    # Workspace cookie. Set COOKIE_SECURE=true in production (HTTPS only).
+    cookie_secure: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:
