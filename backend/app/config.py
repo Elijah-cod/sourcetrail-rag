@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     embedding_dim: int = 384
     model_cache_dir: str = ".cache/models"   # where downloaded models are kept
 
+    # Cross-encoder reranker (FastEmbed / ONNX, ~80 MB, CPU).
+    reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
+
 
 @lru_cache
 def get_settings() -> Settings:

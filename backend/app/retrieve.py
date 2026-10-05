@@ -1,4 +1,4 @@
-"""Hybrid retrieval: run vector + keyword search, then merge them with RRF.
+"""Hybrid retrieval: run vector + keyword search, merge them with RRF, optionally rerank.
 
 Try it from the terminal (shows vector, keyword and hybrid results):
     uv run python -m app.retrieve "your question"
@@ -12,9 +12,11 @@ from uuid import UUID
 import psycopg
 
 from app.embed import Embedder
+from app.rerank import TOP_K, Reranker, rerank
 from app.search import SearchHit, keyword_search, vector_search
 
-Mode = Literal["vector", "keyword", "hybrid"]
+Mode = Literal["vector", "keyword", "hybrid", "hybrid_rerank"]
+MODES = ("vector", "keyword", "hybrid", "hybrid_rerank")
 
 RRF_K = 60            # standard value from the original RRF paper (Cormack et al., 2009)
 CANDIDATES = 20       # how many results to take from each search method
@@ -48,44 +50,54 @@ def rrf_fuse(ranked_lists: dict[str, list[SearchHit]], k: int = RRF_K,
 
 
 def retrieve(conn: psycopg.Connection, embedder: Embedder, question: str, workspace_ids: list[UUID],
-             mode: Mode = "hybrid", year: int | None = None,
-             candidates: int = CANDIDATES, limit: int = FUSED_LIMIT) -> list[SearchHit]:
+             mode: Mode = "hybrid_rerank", year: int | None = None, reranker: Reranker | None = None,
+             candidates: int = CANDIDATES, limit: int = FUSED_LIMIT, top_k: int = TOP_K) -> list[SearchHit]:
     """Find the chunks most likely to answer `question`.
 
-    `mode` lets the evaluation compare methods: vector only, keyword only, or hybrid.
+    `mode` lets the evaluation compare methods, matching the diagram:
+    vector only -> keyword only -> hybrid -> hybrid + reranker.
     """
+    if mode not in MODES:
+        raise ValueError(f"Unknown retrieval mode: {mode!r}")
+    if mode == "hybrid_rerank" and reranker is None:
+        raise ValueError("mode 'hybrid_rerank' needs a reranker")
+
     lists: dict[str, list[SearchHit]] = {}
-    if mode in ("vector", "hybrid"):
+    if mode in ("vector", "hybrid", "hybrid_rerank"):
         lists["vector"] = vector_search(conn, embedder.embed_query(question), workspace_ids,
                                         limit=candidates, year=year)
-    if mode in ("keyword", "hybrid"):
+    if mode in ("keyword", "hybrid", "hybrid_rerank"):
         lists["keyword"] = keyword_search(conn, question, workspace_ids, limit=candidates, year=year)
-    if mode not in ("vector", "keyword", "hybrid"):
-        raise ValueError(f"Unknown retrieval mode: {mode!r}")
-    return rrf_fuse(lists, limit=limit)
+    fused = rrf_fuse(lists, limit=limit)
+
+    if mode == "hybrid_rerank":
+        return rerank(reranker, question, fused, top_k=top_k)
+    return fused
 
 
 def main() -> None:
     from app.config import get_settings
     from app.embed import get_embedder
+    from app.rerank import get_reranker
     from app.store import DEMO_WORKSPACE_ID
 
     question = " ".join(sys.argv[1:]) or "How much did revenue grow?"
-    embedder = get_embedder()
+    embedder, reranker = get_embedder(), get_reranker()
     with psycopg.connect(get_settings().database_url, autocommit=True) as conn:
-        results = {mode: retrieve(conn, embedder, question, [DEMO_WORKSPACE_ID], mode=mode, limit=5)
-                   for mode in ("vector", "keyword", "hybrid")}
+        results = {mode: retrieve(conn, embedder, question, [DEMO_WORKSPACE_ID], mode=mode,
+                                  reranker=reranker, limit=5, top_k=5)
+                   for mode in MODES}
 
     print(f"Question: {question}")
     for mode, hits in results.items():
+        label = "rerank" if mode == "hybrid_rerank" else "rrf"
         print(f"\n== {mode} ==")
         if not hits:
             print("   (no results)")
         for i, hit in enumerate(hits, start=1):
             ranks = ", ".join(f"{m} #{r}" for m, r in hit.ranks.items())
-            print(f"{i}. [rrf {hit.score:.4f}] {hit.chunk_id}  ({ranks})")
+            print(f"{i}. [{label} {hit.score:.4f}] {hit.chunk_id}  ({ranks})")
             print(f"   {hit.text[:110]!r}")
-
 
 if __name__ == "__main__":
     main()

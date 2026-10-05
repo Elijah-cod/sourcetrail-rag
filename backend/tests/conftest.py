@@ -40,6 +40,19 @@ def fake_embedder() -> FakeEmbedder:
     return FakeEmbedder()
 
 
+class FakeReranker:
+    """Stand-in cross-encoder: score = number of question words found in the passage."""
+
+    def score(self, question: str, passages: list[str]) -> list[float]:
+        words = set(re.findall(r"[a-z0-9]+", question.lower()))
+        return [float(len(words & set(re.findall(r"[a-z0-9]+", p.lower())))) for p in passages]
+
+
+@pytest.fixture
+def fake_reranker() -> FakeReranker:
+    return FakeReranker()
+
+
 @pytest.fixture
 def db():
     """A real Postgres connection whose changes are rolled back after each test."""
