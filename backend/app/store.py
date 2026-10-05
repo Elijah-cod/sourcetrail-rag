@@ -7,6 +7,9 @@ import psycopg
 from app.chunking import Chunk
 from app.ingest.models import ExtractedDocument
 
+# The shared demo collection (created by migrations/001_init.sql).
+DEMO_WORKSPACE_ID = UUID("00000000-0000-0000-0000-000000000001")
+
 
 def to_pgvector(vector: list[float]) -> str:
     """Python list -> pgvector's text format '[0.1,0.2,...]'."""
