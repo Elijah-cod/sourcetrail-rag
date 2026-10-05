@@ -8,9 +8,9 @@ from app.llm import LLMUnavailable, OpenAICompatibleClient
 MESSAGES = [{"role": "user", "content": "Hi"}]
 
 
-def client_with(handler, api_key="test-key"):
+def client_with(handler, api_key="test-key", reasoning_effort=""):
     return OpenAICompatibleClient("https://llm.example/v1", api_key, "test-model",
-                                  transport=httpx.MockTransport(handler))
+                                  reasoning_effort=reasoning_effort, transport=httpx.MockTransport(handler))
 
 
 def test_sends_openai_style_request_and_reads_answer():
@@ -26,6 +26,26 @@ def test_sends_openai_style_request_and_reads_answer():
     assert seen["url"] == "https://llm.example/v1/chat/completions"
     assert seen["auth"] == "Bearer test-key"
     assert seen["body"]["model"] == "test-model" and seen["body"]["messages"] == MESSAGES
+    assert "reasoning_effort" not in seen["body"]          # only sent when configured
+
+
+def test_reasoning_settings_are_sent_when_configured():
+    seen = {}
+
+    def handler(request):
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"choices": [{"message": {"content": "Answer [1]."}}]})
+
+    client_with(handler, reasoning_effort="low").complete(MESSAGES)
+    assert seen["body"]["reasoning_effort"] == "low"
+    assert seen["body"]["include_reasoning"] is False
+
+
+@pytest.mark.parametrize("content", ["", "   ", None])
+def test_empty_answer_is_an_error(content):
+    with pytest.raises(LLMUnavailable, match="empty answer"):
+        client_with(lambda r: httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+                    ).complete(MESSAGES)
 
 
 def test_missing_api_key():

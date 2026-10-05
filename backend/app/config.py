@@ -24,7 +24,12 @@ class Settings(BaseSettings):
     # Local alternative (Ollama): LLM_BASE_URL=http://localhost:11434/v1  LLM_MODEL=llama3.2
     llm_base_url: str = "https://api.groq.com/openai/v1"
     llm_api_key: str = ""                      # set LLM_API_KEY in .env, never in code
-    llm_model: str = "llama-3.3-70b-versatile"
+    llm_model: str = "openai/gpt-oss-120b"
+    # Reasoning models (GPT-OSS) "think" before answering. "low" keeps that short: citing
+    # sources needs little thought, and it saves free-tier tokens. Set to "" for models
+    # that don't support it (e.g. many Ollama models).
+    llm_reasoning_effort: str = "low"
+    llm_max_tokens: int = 1500                 # room for brief reasoning + a concise answer
     llm_timeout_seconds: float = 30.0
 
 

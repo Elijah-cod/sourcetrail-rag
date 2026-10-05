@@ -21,25 +21,30 @@ class LLMClient(Protocol):
 
 class OpenAICompatibleClient:
     def __init__(self, base_url: str, api_key: str, model: str, timeout: float = 30.0,
+                 reasoning_effort: str = "", max_tokens: int = 1500,
                  transport: httpx.BaseTransport | None = None):
         self.model = model
         self._api_key = api_key
+        self._reasoning_effort = reasoning_effort
+        self._max_tokens = max_tokens
         # `transport` lets tests swap in a fake server instead of the real internet.
         self._http = httpx.Client(base_url=base_url, timeout=timeout, transport=transport)
 
     def complete(self, messages: list[dict]) -> str:
         if not self._api_key:
             raise LLMUnavailable("No LLM API key configured (set LLM_API_KEY in .env).")
+        body = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.1,              # low = stick closely to the sources, little creativity
+            "max_tokens": self._max_tokens,  # caps length and protects the free quota
+        }
+        if self._reasoning_effort:
+            body["reasoning_effort"] = self._reasoning_effort
+            body["include_reasoning"] = False   # we only want the final answer back
         try:
             response = self._http.post(
-                "/chat/completions",
-                headers={"Authorization": f"Bearer {self._api_key}"},
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                    "temperature": 0.1,    # low = stick closely to the sources, little creativity
-                    "max_tokens": 700,     # keeps answers short and protects the free quota
-                },
+                "/chat/completions", headers={"Authorization": f"Bearer {self._api_key}"}, json=body
             )
         except httpx.HTTPError as exc:      # timeouts, DNS failures, dropped connections...
             raise LLMUnavailable(f"Could not reach the LLM: {exc}") from exc
@@ -50,12 +55,17 @@ class OpenAICompatibleClient:
             raise LLMUnavailable(f"LLM error {response.status_code}: {response.text[:200]}")
 
         try:
-            return response.json()["choices"][0]["message"]["content"].strip()
+            content = response.json()["choices"][0]["message"]["content"] or ""
         except (KeyError, IndexError, TypeError, ValueError) as exc:
             raise LLMUnavailable("The LLM returned a response we couldn't read.") from exc
+        if not content.strip():
+            # e.g. a reasoning model used its whole token budget thinking
+            raise LLMUnavailable("The LLM returned an empty answer.")
+        return content.strip()
 
 
 @lru_cache
 def get_llm() -> LLMClient:
     s = get_settings()
-    return OpenAICompatibleClient(s.llm_base_url, s.llm_api_key, s.llm_model, s.llm_timeout_seconds)
+    return OpenAICompatibleClient(s.llm_base_url, s.llm_api_key, s.llm_model, s.llm_timeout_seconds,
+                                  reasoning_effort=s.llm_reasoning_effort, max_tokens=s.llm_max_tokens)
