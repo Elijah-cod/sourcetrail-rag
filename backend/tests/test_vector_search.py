@@ -37,7 +37,9 @@ def test_searches_own_workspace_plus_demo(db, fake_embedder, workspace_id):
     add(db, fake_embedder, workspace_id, "My doc", "Hybrid search with rerankers.")
 
     hits = vector_search(db, fake_embedder.embed_query("hybrid search"), [workspace_id, DEMO_WORKSPACE_ID])
-    assert {h.document_title for h in hits} == {"Demo doc", "My doc"}
+    # The real demo collection may already hold documents (e.g. ones you indexed by hand),
+    # so check that both of ours are found rather than that they are the only results.
+    assert {"Demo doc", "My doc"} <= {h.document_title for h in hits}
 
 
 def test_year_filter(db, fake_embedder, workspace_id):
