@@ -1,0 +1,45 @@
+{"id": "q01", "question": "What is the default value of hnsw.ef_search?", "relevant": [{"source": "pgvector-readme.md", "contains": "(40 by default)"}, {"source": "pgvector-readme.md", "contains": "which is 40 by default"}]}
+{"id": "q02", "question": "How many dimensions can a vector have if I want to index it with HNSW?", "relevant": [{"source": "pgvector-readme.md", "contains": "up to 2,000 dimensions"}]}
+{"id": "q03", "question": "What does the m parameter of an HNSW index control and what is its default?", "relevant": [{"source": "pgvector-readme.md", "contains": "the max number of connections per layer (16 by default)"}]}
+{"id": "q04", "question": "How many lists should I choose for an IVFFlat index?", "relevant": [{"source": "pgvector-readme.md", "contains": "rows / 1000"}]}
+{"id": "q05", "question": "Why do I get fewer results after creating an IVFFlat index?", "relevant": [{"source": "pgvector-readme.md", "contains": "The index was likely created with too little data for the number of lists"}]}
+{"id": "q06", "question": "Does pgvector support replication and point-in-time recovery?", "relevant": [{"source": "pgvector-readme.md", "contains": "pgvector uses the write-ahead log (WAL)"}]}
+{"id": "q07", "question": "How do I get cosine similarity instead of cosine distance?", "relevant": [{"source": "pgvector-readme.md", "contains": "For cosine similarity, use 1 - cosine distance"}]}
+{"id": "q08", "question": "My nearest neighbour query does a sequential scan instead of using the index. Why?", "relevant": [{"source": "pgvector-readme.md", "contains": "must be the result of a distance operator"}]}
+{"id": "q09", "question": "How can I index embeddings that have more than 2000 dimensions?", "relevant": [{"source": "pgvector-readme.md", "contains": "to index up to 4,000 dimensions"}]}
+{"id": "q10", "question": "What is the difference between strict_order and relaxed_order iterative scans?", "relevant": [{"source": "pgvector-readme.md", "contains": "Relaxed allows results to be slightly out of order by distance"}]}
+{"id": "q11", "question": "Is it a problem if several tenants share one approximate vector index?", "relevant": [{"source": "pgvector-readme.md", "contains": "vectors from one tenant can affect recall"}]}
+{"id": "q12", "question": "Do vector indexes need to fit into RAM?", "relevant": [{"source": "pgvector-readme.md", "contains": "likely see better performance if they do"}]}
+{"id": "q13", "question": "Which distance metrics are available in pgvector?", "relevant": [{"source": "pgvector-readme.md", "contains": "L2 distance, inner product, cosine distance, L1 distance, Hamming distance, and Jaccard distance"}]}
+{"id": "q14", "question": "How can I make building an HNSW index faster?", "relevant": [{"source": "pgvector-readme.md", "contains": "Indexes build significantly faster when the graph fits into"}]}
+{"id": "q15", "question": "How many vectors can be stored in a single table?", "relevant": [{"source": "pgvector-readme.md", "contains": "has a limit of 32 TB by default"}]}
+{"id": "q16", "question": "Where can I find the automatically generated Swagger UI docs for my app?", "relevant": [{"source": "fastapi-tutorial-first-steps.md", "contains": "automatic interactive API documentation (provided by"}]}
+{"id": "q17", "question": "Does FastAPI provide an alternative to Swagger UI for documentation?", "relevant": [{"source": "fastapi-tutorial-first-steps.md", "contains": "alternative automatic documentation (provided by"}]}
+{"id": "q18", "question": "What error message do I get when a path parameter declared as int receives text?", "relevant": [{"source": "fastapi-tutorial-path-params.md", "contains": "Input should be a valid integer, unable to parse string as an integer"}]}
+{"id": "q19", "question": "What exactly are query parameters in a URL?", "relevant": [{"source": "fastapi-tutorial-query-params.md", "contains": "The query is the set of key-value pairs that go after the"}]}
+{"id": "q20", "question": "Which values are converted to True for a boolean query parameter?", "relevant": [{"source": "fastapi-tutorial-query-params.md", "contains": "short=yes"}]}
+{"id": "q21", "question": "Can I send a request body with a GET request?", "relevant": [{"source": "fastapi-tutorial-body.md", "contains": "request has an undefined behavior in the specifications"}]}
+{"id": "q22", "question": "How do I make an attribute of a Pydantic model optional?", "relevant": [{"source": "fastapi-tutorial-body.md", "contains": "to make it just optional"}]}
+{"id": "q23", "question": "How do I send a 404 Not Found error to the client?", "relevant": [{"source": "fastapi-tutorial-handling-errors.md", "contains": "To return HTTP responses with errors to the client you use"}]}
+{"id": "q24", "question": "Should HTTPException be returned or raised?", "relevant": [{"source": "fastapi-tutorial-handling-errors.md", "contains": "Because it's a Python exception, you don"}]}
+{"id": "q25", "question": "How can I handle my own exception class globally across the app?", "relevant": [{"source": "fastapi-tutorial-handling-errors.md", "contains": "You could add a custom exception handler with"}]}
+{"id": "q26", "question": "What counts as a different origin for CORS?", "relevant": [{"source": "fastapi-tutorial-cors.md", "contains": "An origin is the combination of protocol"}]}
+{"id": "q27", "question": "Can I allow all origins with a wildcard while also allowing cookies?", "relevant": [{"source": "fastapi-tutorial-cors.md", "contains": "allow_credentials` is set to `True`"}]}
+{"id": "q28", "question": "How long do browsers cache CORS responses by default with CORSMiddleware?", "relevant": [{"source": "fastapi-tutorial-cors.md", "contains": "to cache CORS responses. Defaults to"}]}
+{"id": "q29", "question": "What does dependency injection mean?", "relevant": [{"source": "fastapi-tutorial-dependencies.md", "contains": "means, in programming, that there is a way for your code"}]}
+{"id": "q30", "question": "Which FastAPI version introduced support for Annotated?", "relevant": [{"source": "fastapi-tutorial-dependencies.md", "contains": "in version 0.95.0"}]}
+{"id": "q31", "question": "Which programs can I use for TLS termination in front of my API?", "relevant": [{"source": "fastapi-deployment-concepts.md", "contains": "Some of the tools you could use as a TLS Termination Proxy are"}]}
+{"id": "q32", "question": "What is the difference between a program and a process?", "relevant": [{"source": "fastapi-deployment-concepts.md", "contains": "is normally used in a more specific way"}]}
+{"id": "q33", "question": "What constant does SourceTrail use in its Reciprocal Rank Fusion formula?", "relevant": [{"source": "sourcetrail-overview-2026.pdf", "contains": "1 / (60 + rank)"}]}
+{"id": "q34", "question": "How long does SourceTrail keep a visitor's uploaded documents?", "relevant": [{"source": "sourcetrail-overview-2026.pdf", "contains": "24 hours after their last activity"}]}
+{"id": "q35", "question": "Which cross-encoder model reranks the search candidates?", "relevant": [{"source": "sourcetrail-overview-2026.pdf", "contains": "ms-marco-MiniLM-L-6-v2"}]}
+{"id": "q36", "question": "How large are the chunks that documents are split into?", "relevant": [{"source": "sourcetrail-overview-2026.pdf", "contains": "about 1,000 characters"}]}
+{"id": "q37", "question": "Which PostgreSQL index works best for huge tables of timestamps stored in order?", "relevant": [{"source": "postgresql-index-types.csv", "contains": "index_type: BRIN"}]}
+{"id": "q38", "question": "Which index type is used for full-text search on tsvector columns?", "relevant": [{"source": "postgresql-index-types.csv", "contains": "index_type: GIN"}]}
+{"id": "q39", "question": "When should I create an IVFFlat index?", "relevant": [{"source": "pgvector-readme.md", "contains": "Create the index *after* the table has some data"}, {"source": "postgresql-index-types.csv", "contains": "create it after the table has data"}]}
+{"id": "u01", "question": "What is the capital of Australia?", "relevant": []}
+{"id": "u02", "question": "How do I configure OAuth2 scopes in Django?", "relevant": []}
+{"id": "u03", "question": "How do I deploy a React app to Vercel?", "relevant": []}
+{"id": "u04", "question": "What is the default port of MongoDB?", "relevant": []}
+{"id": "u05", "question": "Who won the 2022 FIFA World Cup?", "relevant": []}
+{"id": "u06", "question": "How do I train a neural network in PyTorch?", "relevant": []}

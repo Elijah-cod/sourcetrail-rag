@@ -1,0 +1,9 @@
+index_type,provided_by,best_for,example_operators,notes
+B-tree,PostgreSQL core,"Equality and range comparisons on sortable data","= < <= > >= BETWEEN",The default index type; also supports ORDER BY without a separate sort
+Hash,PostgreSQL core,Simple equality lookups,=,Only supports equality; usually B-tree is just as good
+GIN,PostgreSQL core,"Values containing many items: full-text search (tsvector), arrays, JSONB","@@ @> <@ ?",Generalized Inverted Index; fast lookups but slower to update than B-tree
+GiST,PostgreSQL core,"Geometric data, ranges and nearest-neighbour searches","&& @> <-> ","Generalized Search Tree; a framework that supports many data types"
+SP-GiST,PostgreSQL core,"Non-balanced structures such as quadtrees, k-d trees and radix trees","<< >> ~= <->",Space-partitioned GiST; good for data with natural clustering
+BRIN,PostgreSQL core,Very large tables whose values follow the physical row order (such as timestamps),= < >,"Block Range Index; tiny on disk, but only useful when data is naturally ordered"
+HNSW,pgvector extension,Approximate nearest-neighbour search over vectors,<-> <=> <#>,"Better speed-recall trade-off than IVFFlat, but slower to build and uses more memory; can be created on an empty table"
+IVFFlat,pgvector extension,Approximate nearest-neighbour search over vectors,<-> <=> <#>,"Faster to build and uses less memory than HNSW; create it after the table has data, because it clusters existing rows into lists"

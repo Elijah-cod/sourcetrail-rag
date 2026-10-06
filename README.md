@@ -38,3 +38,16 @@ curl -s https://api.groq.com/openai/v1/models \
 ```
 
 Then set `LLM_MODEL=<id>` in `.env` if you want something other than the default.
+
+## Demo collection and evaluation
+
+The demo collection (`backend/demo/sources/`, see `demo/SOURCES.md` for licences) mixes
+Markdown docs, a PDF and a CSV. Load it into the shared demo workspace, then evaluate:
+
+```bash
+cd backend
+uv run python -m app.seed_demo     # (re)load the demo collection
+uv run python -m eval.run_eval     # compare vector / keyword / hybrid / hybrid + reranker
+```
+
+Results are written to `backend/eval/results.md`.
