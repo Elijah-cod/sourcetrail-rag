@@ -2,7 +2,11 @@
 
 import hashlib
 import math
+import os
 import re
+
+# The hourly cleanup job would touch the real database during tests; keep it off.
+os.environ.setdefault("CLEANUP_ENABLED", "false")
 
 import psycopg
 import pytest

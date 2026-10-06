@@ -7,10 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, sta
 
 from app import store
 from app.config import get_settings
-from app.deps import get_conn, optional_workspace, require_workspace, searchable_workspaces
+from app.deps import (get_conn, get_usage_conn, limit_queries, limit_uploads, optional_workspace,
+                      require_workspace, searchable_workspaces)
 from app.embed import Embedder, get_embedder
-from app.indexing import index_document
-from app.ingest import ExtractionError, extract_file, extract_url
+from app.indexing import TooManyChunks, index_document
+from app.ingest import ExtractedDocument, ExtractionError, extract_file, extract_url
+from app.limits import CapacityExceeded, QuotaLLM, check_can_add_document
 from app.llm import LLMClient, get_llm
 from app.qa import ask
 from app.rerank import Reranker, get_reranker
@@ -20,8 +22,22 @@ from app.schemas import (ChunkOut, DocumentOut, IngestResponse, QueryRequest, Qu
 router = APIRouter()
 
 
+def _store(conn: psycopg.Connection, embedder: Embedder, workspace_id: UUID,
+           doc: ExtractedDocument, source_uri: str) -> IngestResponse:
+    """Shared by both ingest routes: enforce the workspace's caps, then index."""
+    try:
+        room = check_can_add_document(conn, workspace_id)
+        result = index_document(conn, embedder, workspace_id, doc, source_uri=source_uri,
+                                chunk_budget=room)
+    except (CapacityExceeded, TooManyChunks) as exc:
+        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, str(exc)) from exc
+    return IngestResponse(document_id=result.document_id, title=doc.title, slug=result.slug,
+                          chunk_count=result.chunk_count)
+
+
 @router.post("/documents", response_model=IngestResponse, status_code=status.HTTP_201_CREATED,
-             summary="Upload a file (PDF, DOCX, MD, TXT, CSV)")
+             summary="Upload a file (PDF, DOCX, MD, TXT, CSV)",
+             dependencies=[Depends(limit_uploads)])
 def upload_document(file: UploadFile,
                     workspace_id: UUID = Depends(require_workspace),
                     conn: psycopg.Connection = Depends(get_conn),
@@ -36,14 +52,11 @@ def upload_document(file: UploadFile,
         doc = extract_file(filename, data)
     except ExtractionError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-
-    result = index_document(conn, embedder, workspace_id, doc, source_uri=filename)
-    return IngestResponse(document_id=result.document_id, title=doc.title, slug=result.slug,
-                          chunk_count=result.chunk_count)
+    return _store(conn, embedder, workspace_id, doc, source_uri=filename)
 
 
 @router.post("/sources/url", response_model=IngestResponse, status_code=status.HTTP_201_CREATED,
-             summary="Add a web page")
+             summary="Add a web page", dependencies=[Depends(limit_uploads)])
 def add_url(body: UrlRequest,
             workspace_id: UUID = Depends(require_workspace),
             conn: psycopg.Connection = Depends(get_conn),
@@ -53,10 +66,7 @@ def add_url(body: UrlRequest,
         doc = extract_url(url)
     except ExtractionError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-
-    result = index_document(conn, embedder, workspace_id, doc, source_uri=url)
-    return IngestResponse(document_id=result.document_id, title=doc.title, slug=result.slug,
-                          chunk_count=result.chunk_count)
+    return _store(conn, embedder, workspace_id, doc, source_uri=url)
 
 
 @router.get("/documents", response_model=list[DocumentOut],
@@ -78,14 +88,16 @@ def delete_document(document_id: UUID,
 
 
 @router.post("/query", response_model=QueryResponse,
-             summary="Ask a question; get a cited answer")
+             summary="Ask a question; get a cited answer", dependencies=[Depends(limit_queries)])
 def query(body: QueryRequest,
           workspace_id: UUID | None = Depends(optional_workspace),
           conn: psycopg.Connection = Depends(get_conn),
           embedder: Embedder = Depends(get_embedder),
           reranker: Reranker = Depends(get_reranker),
-          llm: LLMClient = Depends(get_llm)):
-    result = ask(conn, embedder, reranker, llm, body.question,
+          llm: LLMClient = Depends(get_llm),
+          usage: psycopg.Connection = Depends(get_usage_conn)):
+    metered_llm = QuotaLLM(llm, usage, get_settings().llm_calls_per_day)   # counts toward the daily cap
+    result = ask(conn, embedder, reranker, metered_llm, body.question,
                  searchable_workspaces(workspace_id), mode=body.mode)
     return QueryResponse.model_validate(result)
 

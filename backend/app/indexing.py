@@ -28,11 +28,20 @@ def text_for_embedding(doc: ExtractedDocument, chunk: Chunk) -> str:
     return f"{context}\n\n{chunk.text}" if context else chunk.text
 
 
+class TooManyChunks(Exception):
+    """The document would push the workspace past its chunk budget."""
+
+
 def index_document(conn: psycopg.Connection, embedder: Embedder, workspace_id: UUID,
-                   doc: ExtractedDocument, source_uri: str | None = None) -> IndexResult:
+                   doc: ExtractedDocument, source_uri: str | None = None,
+                   chunk_budget: int | None = None) -> IndexResult:
     with conn.transaction():   # everything below is saved together, or not at all
         slug = store.unique_slug(conn, workspace_id, slugify(doc.title))
         chunks = chunk_document(doc, slug)
+        # Check *before* embedding: embedding is the expensive part.
+        if chunk_budget is not None and len(chunks) > chunk_budget:
+            raise TooManyChunks(f"This document has {len(chunks)} chunks but your workspace "
+                                f"only has room for {max(chunk_budget, 0)} more.")
         embeddings = embedder.embed_documents([text_for_embedding(doc, c) for c in chunks])
         document_id = store.insert_document(conn, workspace_id, slug, doc, source_uri)
         store.insert_chunks(conn, document_id, chunks, embeddings)

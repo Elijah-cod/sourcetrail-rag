@@ -1,17 +1,49 @@
 """FastAPI entry point."""
 
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from app import db
 from app.api import router
+from app.config import get_settings
+from app.limits import RateLimited
+from app.maintenance import cleanup
+
+log = logging.getLogger("sourcetrail")
+
+
+async def cleanup_forever(interval_minutes: int, ttl_hours: int) -> None:
+    """Every hour: delete expired visitor workspaces. Runs alongside the web server."""
+    while True:
+        try:
+            def run():
+                with db.open_pool().connection() as conn:
+                    return cleanup(conn, ttl_hours)
+            # cleanup() is ordinary blocking code; run it in a worker thread so it
+            # doesn't freeze the server while it works.
+            workspaces, events = await asyncio.to_thread(run)
+            if workspaces or events:
+                log.info("cleanup: %d workspaces, %d usage events deleted", workspaces, events)
+        except Exception:
+            log.exception("cleanup failed; will retry next interval")
+        await asyncio.sleep(interval_minutes * 60)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.open_pool()
+    settings = get_settings()
+    task = None
+    if settings.cleanup_enabled:
+        task = asyncio.create_task(cleanup_forever(settings.cleanup_interval_minutes,
+                                                   settings.workspace_ttl_hours))
     yield
+    if task:
+        task.cancel()
     db.close_pool()
 
 
@@ -21,6 +53,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(router)
+
+
+@app.exception_handler(RateLimited)
+def rate_limited(request: Request, exc: RateLimited) -> JSONResponse:
+    """Turn RateLimited (raised anywhere) into HTTP 429 + a Retry-After header."""
+    return JSONResponse(status_code=429, content={"detail": str(exc)},
+                        headers={"Retry-After": str(exc.retry_after)})
 
 
 @app.get("/health")

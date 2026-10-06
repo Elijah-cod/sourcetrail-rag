@@ -23,6 +23,7 @@ class FakeLLM:
 def client(db, fake_embedder, fake_reranker):
     """A TestClient wired to the rolled-back test DB and fake models."""
     app.dependency_overrides[deps.get_conn] = lambda: db
+    app.dependency_overrides[deps.get_usage_conn] = lambda: db
     app.dependency_overrides[get_embedder] = lambda: fake_embedder
     app.dependency_overrides[get_reranker] = lambda: fake_reranker
     app.dependency_overrides[get_llm] = lambda: FakeLLM()
@@ -162,3 +163,55 @@ def test_question_validation(client):
     assert client.post("/query", json={"question": ""}).status_code == 422
     assert client.post("/query", json={"question": "x" * 1001}).status_code == 422
     assert client.post("/query", json={"question": "ok", "mode": "magic"}).status_code == 422
+
+
+# ---------- step 12: public-site protection ----------
+
+def test_queries_are_rate_limited(client, monkeypatch):
+    monkeypatch.setattr(deps.get_settings(), "queries_per_minute", 2)
+    for _ in range(2):
+        assert client.post("/query", json={"question": "hello"}).status_code == 200
+    blocked = client.post("/query", json={"question": "hello"})
+    assert blocked.status_code == 429
+    assert int(blocked.headers["Retry-After"]) >= 1
+
+
+def test_rate_limit_applies_even_without_cookies(client, monkeypatch):
+    # A bot that drops cookies gets a new workspace each time, but the same IP key.
+    monkeypatch.setattr(deps.get_settings(), "uploads_per_hour", 2)
+    codes = [new_client().post("/documents", files={"file": ("a.md", b"# A\n\nText.", "text/markdown")}
+                               ).status_code for _ in range(3)]
+    assert codes == [201, 201, 429]
+
+
+def test_failed_uploads_still_count(client, monkeypatch):
+    monkeypatch.setattr(deps.get_settings(), "uploads_per_hour", 2)
+    assert upload(client, name="junk.png", data=b"x").status_code == 422
+    assert upload(client, name="junk.png", data=b"x").status_code == 422
+    assert upload(client).status_code == 429
+
+
+def test_document_cap_per_workspace(client, monkeypatch):
+    monkeypatch.setattr(deps.get_settings(), "max_documents_per_workspace", 2)
+    assert upload(client, name="a.md", data=b"# A\n\nOne.").status_code == 201
+    assert upload(client, name="b.md", data=b"# B\n\nTwo.").status_code == 201
+    full = upload(client, name="c.md", data=b"# C\n\nThree.")
+    assert full.status_code == 413 and "Delete one" in full.json()["detail"]
+
+
+def test_chunk_budget_per_workspace(client, monkeypatch):
+    monkeypatch.setattr(deps.get_settings(), "max_chunks_per_workspace", 3)
+    big = ("# Big\n\n" + "A sentence about limits. " * 400).encode()      # many chunks
+    response = upload(client, name="big.md", data=big)
+    assert response.status_code == 413 and "only has room for 3" in response.json()["detail"]
+    assert [d for d in client.get("/documents").json() if not d["is_demo"]] == []   # nothing saved
+
+
+def test_daily_llm_cap_falls_back_to_sources(client, monkeypatch):
+    upload(client)
+    monkeypatch.setattr(deps.get_settings(), "llm_calls_per_day", 1)
+    first = client.post("/query", json={"question": "Why did revenue decline?"}).json()
+    second = client.post("/query", json={"question": "Why did revenue decline?"}).json()
+    assert first["status"] == "answered"
+    assert second["status"] == "llm_unavailable" and "daily" in second["answer"]
+    assert second["sources"]                                     # still shows the passages

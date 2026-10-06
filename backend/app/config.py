@@ -37,6 +37,23 @@ class Settings(BaseSettings):
     # Workspace cookie. Set COOKIE_SECURE=true in production (HTTPS only).
     cookie_secure: bool = False
 
+    # ---- Public-site protection ----
+    # Storage caps per visitor workspace
+    max_documents_per_workspace: int = 10
+    max_chunks_per_workspace: int = 2000
+    # Rate limits per client (hashed IP address)
+    queries_per_minute: int = 10
+    uploads_per_hour: int = 20
+    # Site-wide cap on LLM calls per 24 h, kept under Groq's free daily quota
+    llm_calls_per_day: int = 800
+    # Visitor workspaces are deleted this long after their last activity
+    workspace_ttl_hours: int = 24
+    cleanup_enabled: bool = True
+    cleanup_interval_minutes: int = 60
+    # Behind a proxy (Render), the real client IP is in X-Forwarded-For. Only trust that
+    # header when a proxy you control adds it; otherwise anyone can fake it.
+    trust_forwarded_for: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

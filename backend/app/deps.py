@@ -12,16 +12,30 @@ from fastapi import Depends, Request, Response
 
 from app import db
 from app.config import get_settings
+from app.limits import check_rate, client_key
 from app.store import DEMO_WORKSPACE_ID
 
 COOKIE_NAME = "st_workspace"
-COOKIE_MAX_AGE = 7 * 24 * 3600     # browser keeps the cookie a week (data cleanup comes in step 12)
 
 
 def get_conn() -> Iterator[psycopg.Connection]:
     """Borrow a database connection from the pool for the duration of one request."""
     with db.open_pool().connection() as conn:
         yield conn      # code after `yield` runs when the request is finished
+
+
+def get_usage_conn() -> Iterator[psycopg.Connection]:
+    """A separate connection that saves every statement immediately (autocommit).
+
+    Used to record rate-limit events: they must count even when the request itself
+    fails and its main transaction is rolled back (e.g. a spammer's junk uploads).
+    """
+    with db.open_pool().connection() as conn:
+        conn.autocommit = True
+        try:
+            yield conn
+        finally:
+            conn.autocommit = False   # hand it back to the pool in its normal state
 
 
 def _workspace_from_cookie(request: Request, conn: psycopg.Connection) -> UUID | None:
@@ -53,7 +67,8 @@ def require_workspace(request: Request, response: Response,
         return existing
     workspace_id = conn.execute("INSERT INTO workspaces DEFAULT VALUES RETURNING id").fetchone()[0]
     response.set_cookie(
-        COOKIE_NAME, str(workspace_id), max_age=COOKIE_MAX_AGE,
+        COOKIE_NAME, str(workspace_id),
+        max_age=get_settings().workspace_ttl_hours * 3600,   # same lifetime as the data
         httponly=True,                          # JavaScript can't read it (limits XSS damage)
         samesite="lax",                         # not sent on cross-site POSTs (limits CSRF)
         secure=get_settings().cookie_secure,    # HTTPS-only in production
@@ -64,3 +79,11 @@ def require_workspace(request: Request, response: Response,
 def searchable_workspaces(own: UUID | None) -> list[UUID]:
     """What a visitor may search: their own workspace (if any) plus the demo collection."""
     return [own, DEMO_WORKSPACE_ID] if own else [DEMO_WORKSPACE_ID]
+
+
+def limit_queries(request: Request, usage: psycopg.Connection = Depends(get_usage_conn)) -> None:
+    check_rate(usage, "query", client_key(request), get_settings().queries_per_minute, 60)
+
+
+def limit_uploads(request: Request, usage: psycopg.Connection = Depends(get_usage_conn)) -> None:
+    check_rate(usage, "upload", client_key(request), get_settings().uploads_per_hour, 3600)
