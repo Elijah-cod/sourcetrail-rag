@@ -1,4 +1,5 @@
 import { BookOpen, FolderClosed, Menu, User } from "lucide-react";
+import { plural } from "@/lib/format";
 import { Logo } from "./Logo";
 
 type Props = {
@@ -38,7 +39,7 @@ export function Header({ onOpenNav, onToggleSources, sourcesCount, chunkCount }:
         {chunkCount !== null && (
           <div className="hidden items-center gap-2 rounded-full border border-emerald-200/70 bg-emerald-50/80 px-2.5 py-1 text-[11.5px] font-medium text-emerald-800 sm:flex">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-            <span>{chunkCount.toLocaleString()} chunks indexed</span>
+            <span>{plural(chunkCount, "chunk")} indexed</span>
           </div>
         )}
         <button

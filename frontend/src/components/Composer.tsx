@@ -1,16 +1,20 @@
 "use client";
 
-import { ArrowUp, Paperclip } from "lucide-react";
-import { useState, type KeyboardEvent } from "react";
+import { ArrowUp, Loader2, Paperclip } from "lucide-react";
+import { useRef, useState, type KeyboardEvent } from "react";
+import { ACCEPTED_FILES } from "./DocumentsView";
 
 type Props = {
   onSubmit: (question: string) => void;
+  onAttach: (files: File[]) => void;
+  uploading: boolean;
   disabled?: boolean;
 };
 
 /** The prompt box at the bottom of the chat. Enter sends, Shift+Enter adds a new line. */
-export function Composer({ onSubmit, disabled }: Props) {
+export function Composer({ onSubmit, onAttach, uploading, disabled }: Props) {
   const [text, setText] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const send = () => {
     const question = text.trim();
@@ -44,10 +48,27 @@ export function Composer({ onSubmit, disabled }: Props) {
         />
         <div className="mt-1 flex items-center justify-between border-t border-slate-100 px-1 pt-2">
           <div className="flex items-center gap-1.5">
-            <button type="button" disabled className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-400" title="Coming in the next commit">
-              <Paperclip className="h-4 w-4" aria-hidden />
-              Attach
+            <button
+              type="button"
+              onClick={() => fileInput.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:cursor-wait disabled:opacity-60"
+              title="Upload a document to your workspace"
+            >
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Paperclip className="h-4 w-4" aria-hidden />}
+              {uploading ? "Uploading…" : "Attach"}
             </button>
+            <input
+              ref={fileInput}
+              type="file"
+              multiple
+              accept={ACCEPTED_FILES}
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files?.length) onAttach(Array.from(e.target.files));
+                e.target.value = "";
+              }}
+            />
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden font-mono text-[11px] text-slate-400 md:inline">Enter to send</span>
