@@ -3,9 +3,11 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app import db
 from app.api import router
@@ -52,7 +54,8 @@ app = FastAPI(
     description="Multi-source RAG: hybrid search, reranking and verifiable citations.",
     lifespan=lifespan,
 )
-app.include_router(router)
+# Every API route lives under /api, leaving "/" free for the web page.
+app.include_router(router, prefix="/api")
 
 
 @app.exception_handler(RateLimited)
@@ -63,5 +66,15 @@ def rate_limited(request: Request, exc: RateLimited) -> JSONResponse:
 
 
 @app.get("/health")
+@app.get("/api/health")
 def health() -> dict:
     return {"status": "ok", "database": "ok" if db.ping() else "down"}
+
+
+# Serve the built frontend (if it has been built). Mounted last, so /api/* and /health
+# are matched first; everything else is looked up as a file in frontend/out.
+_frontend = Path(get_settings().frontend_dir)
+if not _frontend.is_absolute():
+    _frontend = Path(__file__).resolve().parent.parent / _frontend
+if _frontend.is_dir():
+    app.mount("/", StaticFiles(directory=_frontend, html=True), name="frontend")

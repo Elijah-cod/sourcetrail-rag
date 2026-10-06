@@ -5,6 +5,7 @@ Try it from the terminal (needs LLM_API_KEY in .env):
 """
 
 import sys
+import time
 from dataclasses import dataclass, field
 from typing import Literal
 from uuid import UUID
@@ -16,7 +17,7 @@ from app.embed import Embedder
 from app.generate import NOT_FOUND, Citation, generate_answer
 from app.llm import LLMClient, LLMUnavailable
 from app.query import parse_query
-from app.rerank import Reranker
+from app.rerank import TOP_K, Reranker
 from app.retrieve import Mode, retrieve
 from app.search import SearchHit
 
@@ -30,30 +31,38 @@ class Answer:
     citations: list[Citation] = field(default_factory=list)
     sources: list[SearchHit] = field(default_factory=list)   # everything we retrieved, cited or not
     filters: dict = field(default_factory=dict)              # e.g. {"year": 2024} if one was applied
+    timings: dict = field(default_factory=dict)              # milliseconds per stage
 
 
 def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None, llm: LLMClient,
         question: str, workspace_ids: list[UUID], mode: Mode = "hybrid_rerank",
-        min_relevance: float | None = None) -> Answer:
+        min_relevance: float | None = None, top_k: int = TOP_K) -> Answer:
     parsed = parse_query(question)
+    timings: dict[str, float] = {}
     hits = retrieve(conn, embedder, parsed.text, workspace_ids, mode=mode, reranker=reranker,
-                    year=parsed.year)
+                    year=parsed.year, top_k=top_k, timings=timings)
+    # Every mode hands the LLM at most top_k sources (only the reranker trimmed before).
+    hits = hits[:top_k]
 
     # Don't spend an LLM call (and free quota) when nothing relevant was found.
     # Only reranker scores are 0..1 probabilities, so the threshold applies to that mode.
     threshold = get_settings().min_relevance if min_relevance is None else min_relevance
     if not hits or (mode == "hybrid_rerank" and hits[0].score < threshold):
-        return Answer(status="not_found", answer=NOT_FOUND, sources=hits, filters=parsed.filters)
+        return Answer(status="not_found", answer=NOT_FOUND, sources=hits, filters=parsed.filters,
+                      timings=timings)
 
+    started = time.perf_counter()
     try:
         text, citations = generate_answer(llm, question, hits)
+        timings["generation_ms"] = (time.perf_counter() - started) * 1000
     except LLMUnavailable as exc:
         # Still useful: show the sources we found, with a clear message.
-        return Answer(status="llm_unavailable", sources=hits, filters=parsed.filters,
+        return Answer(status="llm_unavailable", sources=hits, filters=parsed.filters, timings=timings,
                       answer=f"{exc} Here are the most relevant passages I found.")
 
     status: Status = "not_found" if text.strip() == NOT_FOUND else "answered"
-    return Answer(status=status, answer=text, citations=citations, sources=hits, filters=parsed.filters)
+    return Answer(status=status, answer=text, citations=citations, sources=hits,
+                  filters=parsed.filters, timings=timings)
 
 
 def main() -> None:

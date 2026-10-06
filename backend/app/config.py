@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     # header when a proxy you control adds it; otherwise anyone can fake it.
     trust_forwarded_for: bool = False
 
+    # The Next.js static export (frontend/out). Served at "/" when the folder exists.
+    frontend_dir: str = "../frontend/out"
+
 
 @lru_cache
 def get_settings() -> Settings:

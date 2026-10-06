@@ -21,6 +21,7 @@ class Out(BaseModel):
 class QueryRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000, examples=["Why did revenue decline in 2024?"])
     mode: Literal["vector", "keyword", "hybrid", "hybrid_rerank"] = "hybrid_rerank"
+    top_k: int = Field(default=6, ge=1, le=10, description="How many sources the answer may use")
 
 
 class UrlRequest(BaseModel):
@@ -76,6 +77,7 @@ class QueryResponse(Out):
     citations: list[CitationOut]
     sources: list[SourceOut]
     filters: dict[str, int] = {}     # filters read from the question, e.g. {"year": 2024}
+    timings: dict[str, float] = {}   # search_ms, rerank_ms, generation_ms
 
 
 class ChunkOut(Out):

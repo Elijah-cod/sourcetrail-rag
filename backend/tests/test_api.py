@@ -38,7 +38,7 @@ def new_client():
 
 
 def upload(client, name="report.md", data=REPORT_MD):
-    return client.post("/documents", files={"file": (name, data, "text/markdown")})
+    return client.post("/api/documents", files={"file": (name, data, "text/markdown")})
 
 
 def test_upload_creates_workspace_cookie_and_document(client):
@@ -48,7 +48,7 @@ def test_upload_creates_workspace_cookie_and_document(client):
     assert body["title"] == "Annual Report" and body["chunk_count"] == 1
     assert deps.COOKIE_NAME in client.cookies
 
-    docs = client.get("/documents").json()
+    docs = client.get("/api/documents").json()
     mine = [d for d in docs if not d["is_demo"]]
     assert [d["title"] for d in mine] == ["Annual Report"]
 
@@ -58,18 +58,18 @@ def test_second_upload_reuses_the_same_workspace(client):
     first_cookie = client.cookies[deps.COOKIE_NAME]
     upload(client, name="notes.md", data=b"# Notes\n\nSome notes.")
     assert client.cookies[deps.COOKIE_NAME] == first_cookie
-    assert len([d for d in client.get("/documents").json() if not d["is_demo"]]) == 2
+    assert len([d for d in client.get("/api/documents").json() if not d["is_demo"]]) == 2
 
 
 def test_other_visitors_cannot_see_my_documents(client):
     upload(client)
     stranger = new_client()
-    assert [d for d in stranger.get("/documents").json() if not d["is_demo"]] == []
+    assert [d for d in stranger.get("/api/documents").json() if not d["is_demo"]] == []
 
 
 def test_query_returns_cited_answer(client):
     document_id = upload(client).json()["document_id"]
-    response = client.post("/query", json={"question": "Why did revenue decline?"})
+    response = client.post("/api/query", json={"question": "Why did revenue decline?"})
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "answered"
@@ -79,7 +79,7 @@ def test_query_returns_cited_answer(client):
     assert body["sources"][0]["ranks"]["rerank"] == 1
 
     # Source inspection: follow the citation to the exact chunk.
-    chunk = client.get(f"/documents/{document_id}/chunks/{citation['chunk_id']}")
+    chunk = client.get(f"/api/documents/{document_id}/chunks/{citation['chunk_id']}")
     assert chunk.status_code == 200
     assert "lower demand" in chunk.json()["text"]
 
@@ -90,7 +90,7 @@ def test_query_without_cookie_uses_demo_only_and_creates_no_workspace(client, db
     index_document(db, fake_embedder, DEMO_WORKSPACE_ID, doc)
     before = db.execute("SELECT count(*) FROM workspaces").fetchone()[0]
 
-    body = client.post("/query", json={"question": "What is hybrid search?"}).json()
+    body = client.post("/api/query", json={"question": "What is hybrid search?"}).json()
     assert "Demo Guide" in {s["document_title"] for s in body["sources"]}
     assert db.execute("SELECT count(*) FROM workspaces").fetchone()[0] == before
     assert deps.COOKIE_NAME not in client.cookies
@@ -110,44 +110,44 @@ def test_add_url(client, monkeypatch):
     doc = ExtractedDocument(title="FastAPI Docs", source_type="url",
                             sections=[Section(text="FastAPI is a web framework.", heading="Intro")])
     monkeypatch.setattr("app.api.extract_url", lambda url: doc)
-    response = client.post("/sources/url", json={"url": "https://example.com/docs"})
+    response = client.post("/api/sources/url", json={"url": "https://example.com/docs"})
     assert response.status_code == 201 and response.json()["title"] == "FastAPI Docs"
-    listed = [d for d in client.get("/documents").json() if not d["is_demo"]]
+    listed = [d for d in client.get("/api/documents").json() if not d["is_demo"]]
     assert listed[0]["source_uri"] == "https://example.com/docs"
 
 
 def test_add_url_rejects_bad_input(client, monkeypatch):
-    assert client.post("/sources/url", json={"url": "not a url"}).status_code == 422
+    assert client.post("/api/sources/url", json={"url": "not a url"}).status_code == 422
 
     def refuse(url):
         raise web.ExtractionError("That URL points to a private or local address, which isn't allowed.")
 
     monkeypatch.setattr("app.api.extract_url", refuse)
-    response = client.post("/sources/url", json={"url": "http://127.0.0.1/admin"})
+    response = client.post("/api/sources/url", json={"url": "http://127.0.0.1/admin"})
     assert response.status_code == 422 and "private" in response.json()["detail"]
 
 
 def test_delete_own_document_but_not_demo(client, db, fake_embedder):
     document_id = upload(client).json()["document_id"]
-    assert client.delete(f"/documents/{document_id}").status_code == 204
-    assert client.delete(f"/documents/{document_id}").status_code == 404     # already gone
+    assert client.delete(f"/api/documents/{document_id}").status_code == 204
+    assert client.delete(f"/api/documents/{document_id}").status_code == 404     # already gone
 
     demo = index_document(db, fake_embedder, DEMO_WORKSPACE_ID,
                           ExtractedDocument(title="Demo", source_type="md", sections=[Section(text="x")]))
-    assert client.delete(f"/documents/{demo.document_id}").status_code == 404
+    assert client.delete(f"/api/documents/{demo.document_id}").status_code == 404
 
 
 def test_cannot_inspect_another_visitors_chunks(client):
     document_id = upload(client).json()["document_id"]
     stranger = new_client()
-    assert stranger.get(f"/documents/{document_id}/chunks/annual-report:c000").status_code == 404
+    assert stranger.get(f"/api/documents/{document_id}/chunks/annual-report:c000").status_code == 404
 
 
 def test_forged_cookies_are_not_trusted(client, db):
     # Pretending to own the demo workspace must not grant write access to it.
     forged = new_client()
     forged.cookies.set(deps.COOKIE_NAME, str(DEMO_WORKSPACE_ID))
-    response = forged.post("/documents", files={"file": ("x.md", b"# Forged\n\nHello.", "text/markdown")})
+    response = forged.post("/api/documents", files={"file": ("x.md", b"# Forged\n\nHello.", "text/markdown")})
     assert response.status_code == 201
     new_cookie = response.cookies[deps.COOKIE_NAME]                       # server issued a fresh one
     assert new_cookie != str(DEMO_WORKSPACE_ID)
@@ -156,13 +156,13 @@ def test_forged_cookies_are_not_trusted(client, db):
 
     garbage = new_client()
     garbage.cookies.set(deps.COOKIE_NAME, "not-a-uuid")
-    assert garbage.get("/documents").status_code == 200
+    assert garbage.get("/api/documents").status_code == 200
 
 
 def test_question_validation(client):
-    assert client.post("/query", json={"question": ""}).status_code == 422
-    assert client.post("/query", json={"question": "x" * 1001}).status_code == 422
-    assert client.post("/query", json={"question": "ok", "mode": "magic"}).status_code == 422
+    assert client.post("/api/query", json={"question": ""}).status_code == 422
+    assert client.post("/api/query", json={"question": "x" * 1001}).status_code == 422
+    assert client.post("/api/query", json={"question": "ok", "mode": "magic"}).status_code == 422
 
 
 # ---------- step 12: public-site protection ----------
@@ -170,8 +170,8 @@ def test_question_validation(client):
 def test_queries_are_rate_limited(client, monkeypatch):
     monkeypatch.setattr(deps.get_settings(), "queries_per_minute", 2)
     for _ in range(2):
-        assert client.post("/query", json={"question": "hello"}).status_code == 200
-    blocked = client.post("/query", json={"question": "hello"})
+        assert client.post("/api/query", json={"question": "hello"}).status_code == 200
+    blocked = client.post("/api/query", json={"question": "hello"})
     assert blocked.status_code == 429
     assert int(blocked.headers["Retry-After"]) >= 1
 
@@ -179,7 +179,7 @@ def test_queries_are_rate_limited(client, monkeypatch):
 def test_rate_limit_applies_even_without_cookies(client, monkeypatch):
     # A bot that drops cookies gets a new workspace each time, but the same IP key.
     monkeypatch.setattr(deps.get_settings(), "uploads_per_hour", 2)
-    codes = [new_client().post("/documents", files={"file": ("a.md", b"# A\n\nText.", "text/markdown")}
+    codes = [new_client().post("/api/documents", files={"file": ("a.md", b"# A\n\nText.", "text/markdown")}
                                ).status_code for _ in range(3)]
     assert codes == [201, 201, 429]
 
@@ -204,14 +204,14 @@ def test_chunk_budget_per_workspace(client, monkeypatch):
     big = ("# Big\n\n" + "A sentence about limits. " * 400).encode()      # many chunks
     response = upload(client, name="big.md", data=big)
     assert response.status_code == 413 and "only has room for 3" in response.json()["detail"]
-    assert [d for d in client.get("/documents").json() if not d["is_demo"]] == []   # nothing saved
+    assert [d for d in client.get("/api/documents").json() if not d["is_demo"]] == []   # nothing saved
 
 
 def test_daily_llm_cap_falls_back_to_sources(client, monkeypatch):
     upload(client)
     monkeypatch.setattr(deps.get_settings(), "llm_calls_per_day", 1)
-    first = client.post("/query", json={"question": "Why did revenue decline?"}).json()
-    second = client.post("/query", json={"question": "Why did revenue decline?"}).json()
+    first = client.post("/api/query", json={"question": "Why did revenue decline?"}).json()
+    second = client.post("/api/query", json={"question": "Why did revenue decline?"}).json()
     assert first["status"] == "answered"
     assert second["status"] == "llm_unavailable" and "daily" in second["answer"]
     assert second["sources"]                                     # still shows the passages
@@ -219,5 +219,27 @@ def test_daily_llm_cap_falls_back_to_sources(client, monkeypatch):
 
 def test_query_reports_applied_filters(client):
     upload(client)
-    assert client.post("/query", json={"question": "What happened in 2024?"}).json()["filters"] == {"year": 2024}
-    assert client.post("/query", json={"question": "What happened?"}).json()["filters"] == {}
+    assert client.post("/api/query", json={"question": "What happened in 2024?"}).json()["filters"] == {"year": 2024}
+    assert client.post("/api/query", json={"question": "What happened?"}).json()["filters"] == {}
+
+
+def test_top_k_limits_sources_in_every_mode(client):
+    for i in range(4):
+        upload(client, name=f"r{i}.md", data=f"# Report {i}\n\nRevenue declined because of demand {i}.".encode())
+    for mode in ("vector", "keyword", "hybrid", "hybrid_rerank"):
+        body = client.post("/api/query", json={"question": "Why did revenue decline?", "mode": mode,
+                                               "top_k": 2}).json()
+        assert len(body["sources"]) <= 2, mode
+
+
+def test_timings_are_reported(client):
+    upload(client)
+    timings = client.post("/api/query", json={"question": "Why did revenue decline?"}).json()["timings"]
+    assert {"search_ms", "rerank_ms", "generation_ms"} <= set(timings)
+    assert all(v >= 0 for v in timings.values())
+    assert client.post("/api/query", json={"question": "x", "top_k": 11}).status_code == 422
+
+
+def test_health_on_both_paths(client):
+    assert client.get("/health").status_code == 200
+    assert client.get("/api/health").status_code == 200

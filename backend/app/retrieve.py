@@ -5,6 +5,7 @@ Try it from the terminal (shows vector, keyword and hybrid results):
 """
 
 import sys
+import time
 from dataclasses import replace
 from typing import Literal
 from uuid import UUID
@@ -51,17 +52,21 @@ def rrf_fuse(ranked_lists: dict[str, list[SearchHit]], k: int = RRF_K,
 
 def retrieve(conn: psycopg.Connection, embedder: Embedder, question: str, workspace_ids: list[UUID],
              mode: Mode = "hybrid_rerank", year: int | None = None, reranker: Reranker | None = None,
-             candidates: int = CANDIDATES, limit: int = FUSED_LIMIT, top_k: int = TOP_K) -> list[SearchHit]:
+             candidates: int = CANDIDATES, limit: int = FUSED_LIMIT, top_k: int = TOP_K,
+             timings: dict[str, float] | None = None) -> list[SearchHit]:
     """Find the chunks most likely to answer `question`.
 
     `mode` lets the evaluation compare methods, matching the diagram:
     vector only -> keyword only -> hybrid -> hybrid + reranker.
+    Pass a dict as `timings` to receive how long each stage took (milliseconds).
     """
     if mode not in MODES:
         raise ValueError(f"Unknown retrieval mode: {mode!r}")
     if mode == "hybrid_rerank" and reranker is None:
         raise ValueError("mode 'hybrid_rerank' needs a reranker")
 
+    timings = {} if timings is None else timings
+    started = time.perf_counter()
     lists: dict[str, list[SearchHit]] = {}
     if mode in ("vector", "hybrid", "hybrid_rerank"):
         lists["vector"] = vector_search(conn, embedder.embed_query(question), workspace_ids,
@@ -69,9 +74,13 @@ def retrieve(conn: psycopg.Connection, embedder: Embedder, question: str, worksp
     if mode in ("keyword", "hybrid", "hybrid_rerank"):
         lists["keyword"] = keyword_search(conn, question, workspace_ids, limit=candidates, year=year)
     fused = rrf_fuse(lists, limit=limit)
+    timings["search_ms"] = (time.perf_counter() - started) * 1000
 
     if mode == "hybrid_rerank":
-        return rerank(reranker, question, fused, top_k=top_k)
+        started = time.perf_counter()
+        reranked = rerank(reranker, question, fused, top_k=top_k)
+        timings["rerank_ms"] = (time.perf_counter() - started) * 1000
+        return reranked
     return fused
 
 

@@ -98,7 +98,7 @@ def query(body: QueryRequest,
           usage: psycopg.Connection = Depends(get_usage_conn)):
     metered_llm = QuotaLLM(llm, usage, get_settings().llm_calls_per_day)   # counts toward the daily cap
     result = ask(conn, embedder, reranker, metered_llm, body.question,
-                 searchable_workspaces(workspace_id), mode=body.mode)
+                 searchable_workspaces(workspace_id), mode=body.mode, top_k=body.top_k)
     return QueryResponse.model_validate(result)
 
 
