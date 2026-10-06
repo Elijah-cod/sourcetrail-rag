@@ -215,3 +215,9 @@ def test_daily_llm_cap_falls_back_to_sources(client, monkeypatch):
     assert first["status"] == "answered"
     assert second["status"] == "llm_unavailable" and "daily" in second["answer"]
     assert second["sources"]                                     # still shows the passages
+
+
+def test_query_reports_applied_filters(client):
+    upload(client)
+    assert client.post("/query", json={"question": "What happened in 2024?"}).json()["filters"] == {"year": 2024}
+    assert client.post("/query", json={"question": "What happened?"}).json()["filters"] == {}

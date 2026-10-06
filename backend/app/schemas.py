@@ -75,6 +75,7 @@ class QueryResponse(Out):
     answer: str
     citations: list[CitationOut]
     sources: list[SourceOut]
+    filters: dict[str, int] = {}     # filters read from the question, e.g. {"year": 2024}
 
 
 class ChunkOut(Out):

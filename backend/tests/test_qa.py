@@ -65,3 +65,14 @@ def test_model_saying_not_found(db, fake_embedder, fake_reranker, workspace_id):
     add_report(db, fake_embedder, workspace_id)
     result = ask(db, fake_embedder, fake_reranker, FakeLLM(reply=NOT_FOUND), "Who is the CEO?", [workspace_id])
     assert result.status == "not_found"
+
+
+def test_year_in_question_filters_documents(db, fake_embedder, fake_reranker, workspace_id):
+    for year in (2023, 2024):
+        index_document(db, fake_embedder, workspace_id, ExtractedDocument(
+            title=f"Report {year}", source_type="pdf", published_year=year,
+            sections=[Section(text=f"Revenue changed in {year} because of demand.", page=1)]))
+    llm = FakeLLM()
+    result = ask(db, fake_embedder, fake_reranker, llm, "Why did revenue change in 2024?", [workspace_id])
+    assert result.filters == {"year": 2024}
+    assert {s.document_title for s in result.sources} == {"Report 2024"}

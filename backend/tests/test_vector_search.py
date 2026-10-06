@@ -59,3 +59,12 @@ def test_limit_and_citation_fields(db, fake_embedder, workspace_id):
     assert hits[0].page == 3
     assert hits[0].source_type == "pdf"
     assert hits[0].chunk_id.endswith(":p3:c000")
+
+
+def test_year_filter_keeps_undated_documents(db, fake_embedder, workspace_id):
+    add(db, fake_embedder, workspace_id, "Report 2023", "Revenue grew strongly.", year=2023)
+    add(db, fake_embedder, workspace_id, "Report 2024", "Revenue declined.", year=2024)
+    add(db, fake_embedder, workspace_id, "Glossary", "Revenue means income from sales.")   # no year
+
+    hits = vector_search(db, fake_embedder.embed_query("revenue"), [workspace_id], year=2024)
+    assert {h.document_title for h in hits} == {"Report 2024", "Glossary"}

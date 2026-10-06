@@ -36,14 +36,17 @@ HIT_COLUMNS = """
 
 def vector_search(conn: psycopg.Connection, query_vector: list[float], workspace_ids: list[UUID],
                   limit: int = 20, year: int | None = None) -> list[SearchHit]:
-    """The `limit` chunks whose embeddings are closest to the question's embedding."""
+    """The `limit` chunks whose embeddings are closest to the question's embedding.
+
+    With `year`, documents dated to a *different* year are skipped; undated ones are kept.
+    """
     sql = f"""
         SELECT {HIT_COLUMNS},
                1 - (c.embedding <=> %(q)s::vector) AS score   -- cosine similarity, 1 = identical
         FROM chunks c
         JOIN documents d ON d.id = c.document_id
         WHERE d.workspace_id = ANY(%(workspaces)s)
-          AND (%(year)s::int IS NULL OR d.published_year = %(year)s::int)
+          AND (%(year)s::int IS NULL OR d.published_year IS NULL OR d.published_year = %(year)s::int)
         ORDER BY c.embedding <=> %(q)s::vector                 -- smallest distance first
         LIMIT %(limit)s
     """
@@ -90,7 +93,7 @@ def keyword_search(conn: psycopg.Connection, query_text: str, workspace_ids: lis
         CROSS JOIN q
         WHERE c.tsv @@ q.query                              -- "@@" = does the chunk match?
           AND d.workspace_id = ANY(%(workspaces)s)
-          AND (%(year)s::int IS NULL OR d.published_year = %(year)s::int)
+          AND (%(year)s::int IS NULL OR d.published_year IS NULL OR d.published_year = %(year)s::int)
         ORDER BY score DESC, c.id                            -- c.id breaks ties consistently
         LIMIT %(limit)s
     """

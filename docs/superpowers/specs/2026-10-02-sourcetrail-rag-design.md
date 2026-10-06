@@ -95,7 +95,7 @@ Every search is filtered to `workspace_id IN (visitor_ws, demo_ws)`.
 
 ## 6. Query pipeline
 
-1. **Query processing**: regex-extract a year (`19xx`/`20xx`) → optional filter on `published_year`.
+1. **Query processing**: extract a year only when a time word precedes it ("in 2024", "since 2019", "FY2024") and exactly one year is mentioned → soft filter on `published_year` (documents dated to another year are skipped; undated documents are kept).
 2. **Vector search** top 20 (cosine) and **keyword search** top 20, both workspace-filtered.
 3. **RRF fusion**: `score = Σ 1 / (60 + rank)` across both lists → top 30.
 4. **Rerank** with cross-encoder → top 6.

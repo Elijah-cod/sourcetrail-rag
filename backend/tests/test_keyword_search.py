@@ -59,3 +59,9 @@ def test_odd_characters_are_safe(db, fake_embedder, workspace_id):
     # Characters that mean something in tsquery syntax must not cause SQL errors.
     for text in ["'quotes' & | ! ( ) :*", "search)) OR 1=1; --", "<->"]:
         keyword_search(db, text, [workspace_id])
+
+
+def test_year_filter_keeps_undated_documents(db, fake_embedder, workspace_id):
+    add(db, fake_embedder, workspace_id, "Old", "Quarterly revenue figures.", year=2023)
+    add(db, fake_embedder, workspace_id, "Undated", "Quarterly revenue figures.")
+    assert titles(keyword_search(db, "revenue", [workspace_id], year=2024)) == ["Undated"]
