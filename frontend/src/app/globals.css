@@ -35,3 +35,9 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgb(100 116 139 / 0.35);
 }
+
+/* The highlight that fades out when a passage is picked from the chat. */
+@keyframes flash {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}

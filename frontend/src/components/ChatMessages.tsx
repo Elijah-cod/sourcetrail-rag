@@ -12,11 +12,12 @@ import { AnswerText } from "./AnswerText";
 type Props = {
   messages: Message[];
   onCite: (answerId: number, n: number) => void;
+  active: { answerId: number; n: number } | null;   // the citation open in the sources panel
   onRegenerate: (answerId: number) => void;
   busy: boolean;
 };
 
-export function ChatMessages({ messages, onCite, onRegenerate, busy }: Props) {
+export function ChatMessages({ messages, onCite, active, onRegenerate, busy }: Props) {
   const end = useRef<HTMLDivElement>(null);
 
   // Keep the newest message in view whenever the conversation changes.
@@ -41,6 +42,7 @@ export function ChatMessages({ messages, onCite, onRegenerate, busy }: Props) {
             key={m.id}
             message={m}
             onCite={(n) => onCite(m.id, n)}
+            activeN={active?.answerId === m.id ? active.n : null}
             onRegenerate={() => onRegenerate(m.id)}
             busy={busy}
           />
@@ -54,11 +56,12 @@ export function ChatMessages({ messages, onCite, onRegenerate, busy }: Props) {
 type BubbleProps = {
   message: AssistantMessage;
   onCite: (n: number) => void;
+  activeN: number | null;
   onRegenerate: () => void;
   busy: boolean;
 };
 
-function AssistantBubble({ message, onCite, onRegenerate, busy }: BubbleProps) {
+function AssistantBubble({ message, onCite, activeN, onRegenerate, busy }: BubbleProps) {
   return (
     <div className="flex w-full items-start gap-3 self-start sm:gap-3.5">
       <div className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-200 bg-gradient-to-tr from-indigo-50 to-indigo-100 text-indigo-600 shadow-2xs sm:flex">
@@ -102,7 +105,7 @@ function AssistantBubble({ message, onCite, onRegenerate, busy }: BubbleProps) {
           )}
           {message.status === "done" && message.result && (
             <div className="space-y-4">
-              <AnswerText text={message.result.answer} citations={message.result.citations} onCite={onCite} />
+              <AnswerText text={message.result.answer} citations={message.result.citations} onCite={onCite} activeN={activeN} />
               <Timings result={message.result} />
               <Referenced result={message.result} onCite={onCite} />
             </div>

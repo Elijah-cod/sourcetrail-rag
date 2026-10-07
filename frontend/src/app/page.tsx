@@ -23,8 +23,9 @@ export default function Home() {
   const [view, setView] = useState<View>("chat");
   const [navOpen, setNavOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  // Which answer and which [n] the sources panel is showing.
-  const [inspected, setInspected] = useState<{ answerId: number; n: number } | null>(null);
+  // Which answer and which [n] the sources panel is showing. `flash` counts clicks, so clicking
+  // the same citation twice still replays the highlight in the panel.
+  const [inspected, setInspected] = useState<{ answerId: number; n: number; flash: number } | null>(null);
 
   const [addingLinks, setAddingLinks] = useState(false);
 
@@ -42,7 +43,7 @@ export default function Home() {
   const panelResult = panelAnswer?.role === "assistant" ? panelAnswer.result : undefined;
 
   const inspect = (answerId: number, n: number) => {
-    setInspected({ answerId, n });
+    setInspected((prev) => ({ answerId, n, flash: (prev?.flash ?? 0) + 1 }));
     setSourcesOpen(true);
   };
 
@@ -52,7 +53,7 @@ export default function Home() {
     const answerId = await chat.ask(question, query);
     // On wide screens, open the sources panel automatically the first time there's something to show.
     if (answerId && window.matchMedia("(min-width: 1024px)").matches) {
-      setInspected({ answerId, n: 1 });
+      setInspected({ answerId, n: 1, flash: 0 });
       setSourcesOpen(true);
     }
   };
@@ -123,6 +124,7 @@ export default function Home() {
                   <ChatMessages
                     messages={chat.messages}
                     onCite={inspect}
+                    active={sourcesOpen ? inspected : null}
                     onRegenerate={(id) => void chat.regenerate(id)}
                     busy={chat.loading}
                   />
@@ -189,7 +191,8 @@ export default function Home() {
             <SourceInspector
               result={panelResult}
               selected={inspected?.answerId === panelAnswer.id ? inspected.n : 1}
-              onSelect={(n) => setInspected({ answerId: panelAnswer.id, n })}
+              flash={inspected?.flash ?? 0}
+              onSelect={(n) => setInspected((prev) => ({ answerId: panelAnswer.id, n, flash: prev?.flash ?? 0 }))}
             />
           )}
         </SourcesPanel>

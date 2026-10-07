@@ -12,12 +12,12 @@ import { CitationChip } from "./CitationChip";
  * which React escapes automatically.
  */
 
-type Props = { text: string; citations: Citation[]; onCite: (n: number) => void };
+type Props = { text: string; citations: Citation[]; onCite: (n: number) => void; activeN?: number | null };
 
 const LIST_ITEM = /^\s*(?:[-*•]|\d+[.)])\s+/;
 const INLINE = /(\*\*[^*]+\*\*|`[^`]+`|\[\d+\])/g;   // the pieces we know how to style
 
-export function AnswerText({ text, citations, onCite }: Props) {
+export function AnswerText({ text, citations, onCite, activeN = null }: Props) {
   const byNumber = new Map(citations.map((c) => [c.n, c]));
 
   const inline = (line: string, keyPrefix: string): ReactNode[] =>
@@ -26,7 +26,7 @@ export function AnswerText({ text, citations, onCite }: Props) {
       const cite = part.match(/^\[(\d+)\]$/);
       if (cite) {
         const citation = byNumber.get(Number(cite[1]));
-        return citation ? <CitationChip key={key} citation={citation} onClick={() => onCite(citation.n)} /> : part;
+        return citation ? <CitationChip key={key} citation={citation} active={citation.n === activeN} onClick={() => onCite(citation.n)} /> : part;
       }
       if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
         return <strong key={key} className="font-semibold text-slate-900">{part.slice(2, -2)}</strong>;
