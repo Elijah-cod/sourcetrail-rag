@@ -12,12 +12,21 @@ const PALETTE = [
 
 export const citationColor = (n: number) => PALETTE[(n - 1) % PALETTE.length];
 
-/** "Annual Report · p. 2" or "Guide · Installation" */
+const shorten = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
+
+/** The most specific label: the section if there is one, else the document.
+ *  "SEC-050: Documentation — Eval… · p. 50", "Installation", "Annual Report · p. 2".
+ *  (Naming only the document made every section of a long PDF look like the same source.) */
 export function citationLabel(c: Pick<Citation, "document_title" | "page" | "section">, maxTitle = 28): string {
-  const title = c.document_title.length > maxTitle ? `${c.document_title.slice(0, maxTitle - 1)}…` : c.document_title;
-  if (c.page !== null) return `${title} · p. ${c.page}`;
-  if (c.section && c.section !== c.document_title) return `${title} · ${c.section}`;
-  return title;
+  const hasSection = Boolean(c.section) && c.section !== c.document_title;
+  const name = shorten(hasSection ? c.section! : c.document_title, hasSection ? maxTitle + 6 : maxTitle);
+  return c.page !== null ? `${name} · p. ${c.page}` : name;
+}
+
+/** Everything, for copying and exporting: "Handbook — SEC-050: Documentation, page 50". */
+export function fullCitation(c: Pick<Citation, "document_title" | "page" | "section">): string {
+  const section = c.section && c.section !== c.document_title ? ` — ${c.section}` : "";
+  return `${c.document_title}${section}${c.page !== null ? `, page ${c.page}` : ""}`;
 }
 
 /** The retrieved source behind a citation (it carries the relevance score and ranks). */

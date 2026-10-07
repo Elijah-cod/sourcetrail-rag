@@ -1,4 +1,4 @@
-import { citationLabel } from "./citations";
+import { fullCitation } from "./citations";
 import type { QueryResult } from "./types";
 
 export async function copyText(text: string): Promise<boolean> {
@@ -12,7 +12,7 @@ export async function copyText(text: string): Promise<boolean> {
 
 /** The answer plus a numbered source list, ready to paste anywhere. */
 export function answerWithSources(result: QueryResult): string {
-  const sources = result.citations.map((c) => `[${c.n}] ${citationLabel(c, 80)}${c.source_uri ? ` — ${c.source_uri}` : ""}`);
+  const sources = result.citations.map((c) => `[${c.n}] ${fullCitation(c)}${c.source_uri ? ` — ${c.source_uri}` : ""}`);
   return sources.length ? `${result.answer}\n\nSources:\n${sources.join("\n")}` : result.answer;
 }
 
@@ -20,7 +20,7 @@ export function answerWithSources(result: QueryResult): string {
 export function citationsMarkdown(question: string, result: QueryResult): string {
   const lines = [`# SourceTrail citations`, "", `**Question:** ${question}`, "", `**Answer:** ${result.answer}`, "", "## Sources", ""];
   for (const c of result.citations) {
-    lines.push(`### [${c.n}] ${citationLabel(c, 120)}`);
+    lines.push(`### [${c.n}] ${fullCitation(c)}`);
     if (c.source_uri) lines.push(`Source: ${c.source_uri}`);
     lines.push(`Chunk: \`${c.chunk_id}\``, "", ...c.snippet.split("\n").map((l) => `> ${l}`), "");
   }
