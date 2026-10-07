@@ -157,6 +157,9 @@ def extract_txt(filename: str, data: bytes) -> ExtractedDocument:
     )
 
 
+_TITLE_COLUMN = re.compile(r"^(title|name|subject|heading|topic)$", re.IGNORECASE)
+
+
 def extract_csv(filename: str, data: bytes) -> ExtractedDocument:
     """Each row becomes its own section, written as 'column: value; column: value'."""
     reader = csv.DictReader(io.StringIO(_decode(data)))
@@ -168,5 +171,7 @@ def extract_csv(filename: str, data: bytes) -> ExtractedDocument:
         parts = [f"{column}: {value.strip()}" for column, value in row.items()
                  if column and value and value.strip()]
         if parts:
-            sections.append(Section(text="; ".join(parts), row=number))
+            # A "title"/"name" column labels the row, e.g. citations read "Row 19: Support Policy".
+            label = next((v.strip() for c, v in row.items() if c and v and _TITLE_COLUMN.match(c.strip())), None)
+            sections.append(Section(text="; ".join(parts), row=number, heading=label))
     return ExtractedDocument(title=_stem(filename), source_type="csv", sections=sections)

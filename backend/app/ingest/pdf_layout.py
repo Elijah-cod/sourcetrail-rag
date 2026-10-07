@@ -56,13 +56,23 @@ def read_pdf(data: bytes) -> PdfLayout:
     page_lines = _drop_repeated_margins(page_lines)
     body = _body_size([line for lines in page_lines for line in lines])
 
-    pages, title = [], None
+    pages, headings = [], []
     for number, lines in enumerate(page_lines, start=1):
-        markdown, headings = _to_markdown(lines, body)
+        markdown, page_headings = _to_markdown(lines, body)
         pages.append(markdown)
-        if number == 1 and headings:
-            title = min(headings, key=lambda h: h[0])[1]          # the top-level one
-    return PdfLayout(pages=pages, title=title, metadata_title=str(metadata_title).strip() if metadata_title else None)
+        headings += [(number, size, text) for size, text in page_headings]
+    return PdfLayout(pages=pages, title=_title(headings), metadata_title=str(metadata_title).strip() if metadata_title else None)
+
+
+def _title(headings: list[tuple[int, float, str]]) -> str | None:
+    """The biggest heading on page 1 is the document's title only if no other heading in the
+    document is as big. In a handbook where every section starts with a same-size heading
+    ("SEC-001: Architecture", "SEC-002: Caching"...), the first one is a section, not a title."""
+    first_page = [h for h in headings if h[0] == 1]
+    if not first_page:
+        return None
+    _, size, text = max(first_page, key=lambda h: h[1])
+    return text if sum(1 for h in headings if h[1] >= size) == 1 else None
 
 
 # ---------- words -> lines ----------
@@ -148,9 +158,9 @@ def _join(previous: str, nxt: str) -> str:
     return f"{previous} {nxt}"
 
 
-def _to_markdown(lines: list[Line], body: float) -> tuple[str, list[tuple[int, str]]]:
+def _to_markdown(lines: list[Line], body: float) -> tuple[str, list[tuple[float, str]]]:
     blocks: list[tuple[str, str]] = []        # (kind, text): kind is "h1".."h3", "item" or "p"
-    headings: list[tuple[int, str]] = []
+    headings: list[tuple[float, str]] = []     # (font size, text)
     previous: Line | None = None
     item_x0 = 0.0
 
@@ -166,10 +176,10 @@ def _to_markdown(lines: list[Line], body: float) -> tuple[str, list[tuple[int, s
             kind = f"h{level}"
             if blocks and blocks[-1][0] == kind and not new_paragraph:      # a heading wrapped onto 2 lines
                 blocks[-1] = (kind, f"{blocks[-1][1]} {text}")
-                headings[-1] = (level, blocks[-1][1])
+                headings[-1] = (line.size, blocks[-1][1])
             else:
                 blocks.append((kind, text))
-                headings.append((level, text))
+                headings.append((line.size, text))
         elif bullet := _BULLET.match(text):
             marker = "" if bullet.group(0).startswith("(cid") else bullet.group(0).strip().strip("()").rstrip(".)")
             rest = text[bullet.end():]

@@ -15,16 +15,22 @@ HITS = [hit(0, page=2), hit(1, section="Revenue"), hit(2)]
 
 def test_sources_are_numbered_with_location():
     text = format_sources(HITS)
-    assert text.startswith("[1] Doc 0 | page 2\nText of chunk 0.")
-    assert "[2] Doc 1 | Revenue\nText of chunk 1." in text
-    assert "[3] Doc 2\nText of chunk 2." in text
+    assert text.startswith("[1] Document: Doc 0 | Page: 2\nText of chunk 0.")
+    assert "[2] Document: Doc 1 | Section: Revenue\nText of chunk 1." in text
+    assert "[3] Document: Doc 2\nText of chunk 2." in text
 
 
 def test_messages_contain_rules_sources_and_question():
     system, user = build_messages("Why?", HITS)
     assert system == {"role": "system", "content": SYSTEM_PROMPT}
     assert user["role"] == "user"
-    assert "[3] Doc 2" in user["content"] and user["content"].endswith("Question: Why?")
+    assert "[3] Document: Doc 2" in user["content"] and user["content"].endswith("Question: Why?")
+
+
+def test_prompt_guards_against_misattribution_overreach_and_stale_versions():
+    assert "Never attribute one source's content to another source's name" in SYSTEM_PROMPT
+    assert "say how many you have" in SYSTEM_PROMPT
+    assert "latest version or effective date as current" in SYSTEM_PROMPT
 
 
 def test_prompt_defends_against_instructions_inside_documents():

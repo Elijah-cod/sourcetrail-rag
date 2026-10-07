@@ -83,3 +83,15 @@ def test_pdf_chunks_are_labelled_with_their_heading():
     chunks = chunk_document(extract_file("handbook.pdf", data), "handbook")
     assert [(c.page, c.section) for c in chunks] == [
         (1, "Aurora Operations Handbook"), (2, "2. Incident Response"), (3, "Recovery objectives")]
+
+
+def test_substantial_csv_rows_get_their_own_chunk():
+    # Two versions of one policy must never share a passage.
+    body = "Customers receive a first response within the stated time. " * 4
+    rows = [Section(text=f"title: Support Policy; version: v{i}; content: {body}", row=i, heading="Support Policy")
+            for i in (1, 2)]
+    rows.append(Section(text="title: Tiny; value: 1", row=3, heading="Tiny"))
+    doc = ExtractedDocument(title="Policies", source_type="csv", sections=rows)
+    chunks = chunk_document(doc, "policies")
+    assert [c.section for c in chunks] == ["Row 1: Support Policy", "Row 2: Support Policy", "Row 3: Tiny"]
+    assert "version: v1" in chunks[0].text and "version: v2" not in chunks[0].text

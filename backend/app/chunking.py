@@ -11,6 +11,8 @@ from app.ingest.models import ExtractedDocument
 
 MAX_CHARS = 1000      # ~250 words: small enough to be focused, big enough to make sense alone
 OVERLAP_CHARS = 150   # repeat the end of one chunk at the start of the next
+CSV_ROW_ALONE = 200   # CSV rows at least this long become a chunk of their own
+CSV_GROUP_CHARS = 500 # shorter rows are grouped up to this size
 
 # Where we prefer to cut, best first: paragraph, line, sentence, word.
 SEPARATORS = ["\n\n", "\n", ". ", " "]
@@ -91,10 +93,14 @@ def chunk_document(doc: ExtractedDocument, slug: str, max_chars: int = MAX_CHARS
     pieces: list[tuple[str, int | None, str | None]] = []   # (text, page, section)
 
     if doc.source_type == "csv":
+        # A substantial row (a policy, a record with a paragraph of text) is its own chunk, so a
+        # "v1" row and a "v2" row are never blended into one passage. Tiny rows ("product: X;
+        # revenue: 10") are grouped, since one alone is too small to be a useful passage.
         group: list = []
         for section in doc.sections:
+            big = len(section.text) >= CSV_ROW_ALONE
             group_size = sum(len(s.text) + 1 for s in group)
-            if group and group_size + len(section.text) > max_chars:
+            if group and (big or len(group[-1].text) >= CSV_ROW_ALONE or group_size + len(section.text) > min(CSV_GROUP_CHARS, max_chars)):
                 pieces.append(_csv_piece(group))
                 group = []
             group.append(section)
@@ -132,5 +138,8 @@ def _heading_at(text: str, position: int, default: str | None) -> str | None:
 
 def _csv_piece(rows: list) -> tuple[str, None, str]:
     first, last = rows[0].row, rows[-1].row
-    label = f"Row {first}" if first == last else f"Rows {first}–{last}"
+    if first == last:
+        label = f"Row {first}: {rows[0].heading}" if rows[0].heading else f"Row {first}"
+    else:
+        label = f"Rows {first}–{last}"
     return "\n".join(r.text for r in rows), None, label
