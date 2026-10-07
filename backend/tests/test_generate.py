@@ -60,3 +60,22 @@ def test_invented_citations_are_removed():
 def test_not_found_answer_has_no_citations():
     answer, citations = extract_citations(NOT_FOUND, HITS)
     assert answer == NOT_FOUND and citations == []
+
+
+def test_gpt_oss_style_citations_are_understood():
+    # Real output from openai/gpt-oss-120b: full-width brackets with line ranges.
+    raw = "A user-agent sends requests 【1†L1-L4】 【2†L1-L4】. Browsers are one 【1†L1-L3】."
+    answer, citations = extract_citations(raw, HITS)
+    assert answer == "A user-agent sends requests [1] [2]. Browsers are one [1]."
+    assert [(c.n, c.chunk_id) for c in citations] == [(1, "doc:c000"), (2, "doc:c001")]
+
+
+def test_full_width_and_dagger_variants():
+    answer, citations = extract_citations("Proxies forward 【3】. Some change it [2†L5]. Both 【1, 2】.", HITS)
+    assert answer == "Proxies forward [1]. Some change it [2]. Both [3][2]."
+    assert [c.chunk_id for c in citations] == ["doc:c002", "doc:c001", "doc:c000"]
+
+
+def test_unreadable_markers_are_dropped():
+    answer, citations = extract_citations("Something 【source】 happened [1].", HITS)
+    assert answer == "Something happened [1]." and len(citations) == 1

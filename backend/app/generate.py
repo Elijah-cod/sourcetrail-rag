@@ -12,7 +12,8 @@ NOT_FOUND = "I couldn't find an answer to that in the available documents."
 SYSTEM_PROMPT = f"""You answer questions using ONLY the numbered sources provided.
 
 Rules:
-1. Every factual sentence must end with the number of the source(s) it comes from, like [1] or [2][3].
+1. Every factual sentence must end with the number of the source(s) it comes from, written in
+   plain square brackets exactly like [1] or [2][3]. No other citation style.
 2. Use only information found in the sources. Do not use outside knowledge or guess.
 3. If the sources do not contain the answer, reply exactly: "{NOT_FOUND}"
 4. If the sources only partly answer, say what they do cover and what is missing.
@@ -58,6 +59,17 @@ def build_messages(question: str, hits: list[SearchHit]) -> list[dict]:
 # Matches [1], [12] and grouped forms like [1, 3] or [2,4,5].
 _CITATION = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 
+# Some models (gpt-oss) ignore our format and write citations their own way:
+# 【1】, 【1†L1-L4】, [1†L2-L3] or 【1, 2】. These are rewritten to plain [1] before checking.
+_ODD_CITATION = re.compile(r"[\[【]\s*(\d+(?:\s*,\s*\d+)*)\s*(?:†[^\]】]*)?[\]】]")
+_LEFTOVER_MARKER = re.compile(r"【[^】]*】")
+
+
+def normalize_citations(answer: str) -> str:
+    """Rewrite non-standard citation markers to [n]; drop any we can't read (e.g. 【source】)."""
+    answer = _ODD_CITATION.sub(lambda m: f"[{m.group(1)}]", answer)
+    return _LEFTOVER_MARKER.sub("", answer)
+
 
 def extract_citations(answer: str, hits: list[SearchHit]) -> tuple[str, list[Citation]]:
     """Check every [n] in the answer against the sources we actually sent, and renumber them.
@@ -83,7 +95,7 @@ def extract_citations(answer: str, hits: list[SearchHit]) -> tuple[str, list[Cit
                 new_numbers.append(renumbered)
         return "".join(f"[{n}]" for n in new_numbers)
 
-    cleaned = _CITATION.sub(fix, answer)
+    cleaned = _CITATION.sub(fix, normalize_citations(answer))
     cleaned = re.sub(r"[ \t]+([.,;:!?])", r"\1", cleaned)    # tidy "word ." left by removals
     cleaned = re.sub(r"[ \t]{2,}", " ", cleaned).strip()
 
