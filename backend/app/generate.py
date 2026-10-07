@@ -71,6 +71,17 @@ def normalize_citations(answer: str) -> str:
     return _LEFTOVER_MARKER.sub("", answer)
 
 
+# Two or more markers in a row, e.g. "[1][1]" or "[1] [2]". The model can cite one source
+# twice back to back (gpt-oss does: 【1†L1-L4】【1†L5-L9】 are two line ranges of source 1).
+_MARKER_RUN = re.compile(r"\[\d+\](?:[ \t]*\[\d+\])+")
+
+
+def _dedupe_run(match: re.Match) -> str:
+    """Keep each number once, in order: "[1] [1] [2]" -> "[1][2]"."""
+    numbers = list(dict.fromkeys(re.findall(r"\d+", match.group(0))))
+    return "".join(f"[{n}]" for n in numbers)
+
+
 def extract_citations(answer: str, hits: list[SearchHit]) -> tuple[str, list[Citation]]:
     """Check every [n] in the answer against the sources we actually sent, and renumber them.
 
@@ -96,6 +107,7 @@ def extract_citations(answer: str, hits: list[SearchHit]) -> tuple[str, list[Cit
         return "".join(f"[{n}]" for n in new_numbers)
 
     cleaned = _CITATION.sub(fix, normalize_citations(answer))
+    cleaned = _MARKER_RUN.sub(_dedupe_run, cleaned)          # "[1] [1][2]" -> "[1][2]"
     cleaned = re.sub(r"[ \t]+([.,;:!?])", r"\1", cleaned)    # tidy "word ." left by removals
     cleaned = re.sub(r"[ \t]{2,}", " ", cleaned).strip()
 
