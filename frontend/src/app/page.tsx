@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckCircle2, Download } from "lucide-react";
 import { useState } from "react";
 import { ChatMessages } from "@/components/ChatMessages";
 import { Composer } from "@/components/Composer";
@@ -15,6 +16,9 @@ import { useChat } from "@/hooks/useChat";
 import { useDocuments } from "@/hooks/useDocuments";
 import { useFileDrop } from "@/hooks/useFileDrop";
 import { useHealth } from "@/hooks/useHealth";
+import { useRecentQuestions } from "@/hooks/useRecentQuestions";
+import { answerWithSources, citationsMarkdown, copyText, downloadText } from "@/lib/clipboard";
+import type { QueryResult } from "@/lib/types";
 
 export default function Home() {
   const [view, setView] = useState<View>("chat");
@@ -27,6 +31,7 @@ export default function Home() {
   const online = useHealth();
   const docs = useDocuments(show);
   const chat = useChat();
+  const recent = useRecentQuestions();
   const dragging = useFileDrop((files) => {
     if (docs.busy) show("Please wait for the current upload to finish.", "error");
     else void docs.upload(files);
@@ -45,12 +50,26 @@ export default function Home() {
 
   const ask = async (question: string) => {
     setView("chat");
+    recent.remember(question);
     const answerId = await chat.ask(question);
     // On wide screens, open the sources panel automatically the first time there's something to show.
     if (answerId && window.matchMedia("(min-width: 1024px)").matches) {
       setInspected({ answerId, n: 1 });
       setSourcesOpen(true);
     }
+  };
+
+  const copyAndTell = async (text: string, done: string) => {
+    const ok = await copyText(text);
+    show(ok ? done : "Couldn't copy — your browser blocked clipboard access", ok ? "success" : "error");
+  };
+  const copyAnswer = (result: QueryResult) => copyAndTell(answerWithSources(result), "Answer copied with its sources");
+  const copyPassage = (text: string) => copyAndTell(text, "Passage copied");
+
+  const exportCitations = () => {
+    if (!panelResult || panelAnswer?.role !== "assistant") return;
+    downloadText("sourcetrail-citations.md", citationsMarkdown(panelAnswer.question, panelResult));
+    show("Citations downloaded as sourcetrail-citations.md");
   };
 
   return (
@@ -71,8 +90,8 @@ export default function Home() {
           open={navOpen}
           onClose={() => setNavOpen(false)}
           documentCount={docs.documents?.length ?? null}
-          recentQuestions={[]}
-          onPickRecent={() => {}}
+          recentQuestions={recent.questions}
+          onPickRecent={(q) => void ask(q)}
           online={online}
         />
         <main className="relative flex flex-1 flex-col justify-between overflow-hidden bg-surface">
@@ -82,7 +101,13 @@ export default function Home() {
                 {chat.messages.length === 0 ? (
                   <EmptyChat onPick={(q) => void ask(q)} />
                 ) : (
-                  <ChatMessages messages={chat.messages} onCite={inspect} />
+                  <ChatMessages
+                    messages={chat.messages}
+                    onCite={inspect}
+                    onCopy={(result) => void copyAnswer(result)}
+                    onRegenerate={(id) => void chat.regenerate(id)}
+                    busy={chat.loading}
+                  />
                 )}
               </div>
               <Composer
@@ -118,12 +143,36 @@ export default function Home() {
             </div>
           )}
         </main>
-        <SourcesPanel open={sourcesOpen} onClose={() => setSourcesOpen(false)}>
+        <SourcesPanel
+          open={sourcesOpen}
+          onClose={() => setSourcesOpen(false)}
+          footer={
+            panelResult && panelResult.citations.length > 0 ? (
+              <>
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden />
+                  <span className="font-medium text-slate-700">
+                    {panelResult.citations.length} cited passage{panelResult.citations.length === 1 ? "" : "s"}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={exportCitations}
+                  className="flex items-center gap-1 text-xs font-semibold text-indigo-600 transition-colors hover:text-indigo-700"
+                >
+                  <Download className="h-3.5 w-3.5" aria-hidden />
+                  Export citations
+                </button>
+              </>
+            ) : undefined
+          }
+        >
           {panelResult && panelAnswer && (
             <SourceInspector
               result={panelResult}
               selected={inspected?.answerId === panelAnswer.id ? inspected.n : 1}
               onSelect={(n) => setInspected({ answerId: panelAnswer.id, n })}
+              onCopyPassage={(text) => void copyPassage(text)}
             />
           )}
         </SourcesPanel>

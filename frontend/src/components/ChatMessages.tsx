@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CalendarRange, Network, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CalendarRange, Copy, Network, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { AssistantMessage, Message } from "@/hooks/useChat";
 import { citationColor } from "@/lib/citations";
@@ -10,9 +10,12 @@ import { AnswerText } from "./AnswerText";
 type Props = {
   messages: Message[];
   onCite: (answerId: number, n: number) => void;
+  onCopy: (result: QueryResult) => void;
+  onRegenerate: (answerId: number) => void;
+  busy: boolean;
 };
 
-export function ChatMessages({ messages, onCite }: Props) {
+export function ChatMessages({ messages, onCite, onCopy, onRegenerate, busy }: Props) {
   const end = useRef<HTMLDivElement>(null);
 
   // Keep the newest message in view whenever the conversation changes.
@@ -33,7 +36,14 @@ export function ChatMessages({ messages, onCite }: Props) {
             </div>
           </div>
         ) : (
-          <AssistantBubble key={m.id} message={m} onCite={(n) => onCite(m.id, n)} />
+          <AssistantBubble
+            key={m.id}
+            message={m}
+            onCite={(n) => onCite(m.id, n)}
+            onCopy={onCopy}
+            onRegenerate={() => onRegenerate(m.id)}
+            busy={busy}
+          />
         ),
       )}
       <div ref={end} />
@@ -41,21 +51,43 @@ export function ChatMessages({ messages, onCite }: Props) {
   );
 }
 
-function AssistantBubble({ message, onCite }: { message: AssistantMessage; onCite: (n: number) => void }) {
+type BubbleProps = {
+  message: AssistantMessage;
+  onCite: (n: number) => void;
+  onCopy: (result: QueryResult) => void;
+  onRegenerate: () => void;
+  busy: boolean;
+};
+
+function AssistantBubble({ message, onCite, onCopy, onRegenerate, busy }: BubbleProps) {
   return (
     <div className="flex w-full items-start gap-3 self-start sm:gap-3.5">
       <div className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-200 bg-gradient-to-tr from-indigo-50 to-indigo-100 text-indigo-600 shadow-2xs sm:flex">
         <Network className="h-4 w-4" aria-hidden />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-heading text-[14px] font-bold text-slate-900">SourceTrail</span>
-          {message.status === "done" && message.result && <StatusPill result={message.result} onCite={onCite} />}
-          {message.result?.filters.year && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600">
-              <CalendarRange className="h-3 w-3" aria-hidden />
-              {message.result.filters.year} documents
-            </span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-heading text-[14px] font-bold text-slate-900">SourceTrail</span>
+            {message.status === "done" && message.result && <StatusPill result={message.result} onCite={onCite} />}
+            {message.result?.filters.year && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                <CalendarRange className="h-3 w-3" aria-hidden />
+                {message.result.filters.year} documents
+              </span>
+            )}
+          </div>
+          {message.status !== "loading" && (
+            <div className="flex items-center gap-1">
+              {message.result && (
+                <IconButton label="Copy answer with sources" onClick={() => onCopy(message.result!)}>
+                  <Copy className="h-4 w-4" />
+                </IconButton>
+              )}
+              <IconButton label="Ask again with the current settings" onClick={onRegenerate} disabled={busy}>
+                <RefreshCw className="h-4 w-4" />
+              </IconButton>
+            </div>
           )}
         </div>
 
@@ -159,5 +191,20 @@ function Referenced({ result, onCite }: { result: QueryResult; onCite: (n: numbe
         </button>
       ))}
     </div>
+  );
+}
+
+function IconButton({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+      className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
+    >
+      {children}
+    </button>
   );
 }

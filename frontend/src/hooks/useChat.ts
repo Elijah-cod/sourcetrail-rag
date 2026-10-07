@@ -53,8 +53,25 @@ export function useChat() {
     [settings],
   );
 
+  /** Ask the same question again (e.g. after changing settings), replacing that answer in place. */
+  const regenerate = useCallback(
+    async (answerId: number) => {
+      const target = messages.find((m) => m.id === answerId && m.role === "assistant") as AssistantMessage | undefined;
+      if (!target) return;
+      const update = (changes: Partial<AssistantMessage>) =>
+        setMessages((list) => list.map((m) => (m.id === answerId && m.role === "assistant" ? { ...m, ...changes } : m)));
+      update({ status: "loading", result: undefined, error: undefined });
+      try {
+        update({ status: "done", result: await askQuestion(target.question, settings.mode, settings.topK) });
+      } catch (error) {
+        update({ status: "error", error: error instanceof Error ? error.message : "Something went wrong." });
+      }
+    },
+    [messages, settings],
+  );
+
   const clear = useCallback(() => setMessages([]), []);
   const loading = messages.some((m) => m.role === "assistant" && m.status === "loading");
 
-  return { messages, ask, clear, loading, settings, setSettings };
+  return { messages, ask, regenerate, clear, loading, settings, setSettings };
 }
