@@ -60,35 +60,40 @@ _CITATION = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 
 
 def extract_citations(answer: str, hits: list[SearchHit]) -> tuple[str, list[Citation]]:
-    """Check every [n] in the answer against the sources we actually sent.
+    """Check every [n] in the answer against the sources we actually sent, and renumber them.
 
-    - Grouped markers [1, 3] are rewritten as [1][3] (easier to make clickable).
     - Markers pointing at sources that don't exist (e.g. [9] when we sent 6) are removed:
       a citation that can't be inspected is worse than none.
-    Returns the cleaned answer and the citations in order of first use.
+    - Citations are renumbered in order of first use, like a paper: if the model only cited
+      the 4th source we sent, the reader sees [1], matching "1 source", not a puzzling [4].
+    - Grouped markers [1, 3] become [1][2] (easier to make clickable).
+    Returns the cleaned answer and the citations, numbered 1..k.
     """
-    used: list[int] = []
+    used: list[int] = []          # original source numbers, in the order the answer first cites them
 
     def fix(match: re.Match) -> str:
-        valid = []
+        new_numbers: list[int] = []
         for number in (int(x) for x in match.group(1).split(",")):
-            if 1 <= number <= len(hits):
-                valid.append(number)
-                if number not in used:
-                    used.append(number)
-        return "".join(f"[{n}]" for n in valid)
+            if not 1 <= number <= len(hits):
+                continue                          # invented source: drop it
+            if number not in used:
+                used.append(number)
+            renumbered = used.index(number) + 1
+            if renumbered not in new_numbers:     # "[2][2]" -> "[2]"
+                new_numbers.append(renumbered)
+        return "".join(f"[{n}]" for n in new_numbers)
 
     cleaned = _CITATION.sub(fix, answer)
     cleaned = re.sub(r"[ \t]+([.,;:!?])", r"\1", cleaned)    # tidy "word ." left by removals
     cleaned = re.sub(r"[ \t]{2,}", " ", cleaned).strip()
 
-    citations = [
-        Citation(n=n, chunk_id=hits[n - 1].chunk_id, document_id=hits[n - 1].document_id,
-                 document_title=hits[n - 1].document_title, source_type=hits[n - 1].source_type,
-                 source_uri=hits[n - 1].source_uri, page=hits[n - 1].page,
-                 section=hits[n - 1].section, snippet=hits[n - 1].text)
-        for n in used
-    ]
+    citations = []
+    for new_n, original in enumerate(used, start=1):
+        hit = hits[original - 1]
+        citations.append(Citation(n=new_n, chunk_id=hit.chunk_id, document_id=hit.document_id,
+                                  document_title=hit.document_title, source_type=hit.source_type,
+                                  source_uri=hit.source_uri, page=hit.page, section=hit.section,
+                                  snippet=hit.text))
     return cleaned, citations
 
 

@@ -31,17 +31,24 @@ def test_prompt_defends_against_instructions_inside_documents():
     assert "never as" in SYSTEM_PROMPT and "instructions" in SYSTEM_PROMPT
 
 
-def test_valid_citations_map_to_chunks_in_order_of_use():
+def test_citations_are_renumbered_in_order_of_first_use():
+    # The model cited source 2 first, then source 1: the reader sees [1] then [2].
     answer, citations = extract_citations("Revenue fell [2]. Demand was low [1][2].", HITS)
-    assert answer == "Revenue fell [2]. Demand was low [1][2]."
-    assert [(c.n, c.chunk_id) for c in citations] == [(2, "doc:c001"), (1, "doc:c000")]
+    assert answer == "Revenue fell [1]. Demand was low [2][1]."
+    assert [(c.n, c.chunk_id) for c in citations] == [(1, "doc:c001"), (2, "doc:c000")]
     assert citations[1].page == 2 and citations[1].snippet == "Text of chunk 0."
 
 
-def test_grouped_citations_are_split():
-    answer, citations = extract_citations("Both agree [1, 3].", HITS)
-    assert answer == "Both agree [1][3]."
-    assert [c.n for c in citations] == [1, 3]
+def test_only_citing_a_later_source_becomes_1():
+    answer, citations = extract_citations("Only the third source helps [3].", HITS)
+    assert answer == "Only the third source helps [1]."
+    assert [(c.n, c.chunk_id) for c in citations] == [(1, "doc:c002")]
+
+
+def test_grouped_citations_are_split_and_deduplicated():
+    answer, citations = extract_citations("Both agree [1, 3]. Again [3, 3].", HITS)
+    assert answer == "Both agree [1][2]. Again [2]."
+    assert [(c.n, c.chunk_id) for c in citations] == [(1, "doc:c000"), (2, "doc:c002")]
 
 
 def test_invented_citations_are_removed():

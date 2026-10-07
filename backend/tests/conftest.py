@@ -67,6 +67,9 @@ def db():
     with conn:
         apply_migrations(conn)
         with conn.transaction(force_rollback=True):   # undo everything the test did
+            # Start every test with an empty usage log, so rate limits and the daily LLM cap
+            # aren't affected by real app usage in this database (rolled back afterwards).
+            conn.execute("DELETE FROM usage_events")
             yield conn
 
 
