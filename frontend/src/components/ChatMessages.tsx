@@ -1,6 +1,8 @@
 "use client";
 
-import { AlertTriangle, CalendarRange, Copy, Network, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CalendarRange, Network, RefreshCw, ShieldCheck } from "lucide-react";
+import { answerWithSources } from "@/lib/clipboard";
+import { CopyButton } from "./CopyButton";
 import { useEffect, useRef } from "react";
 import type { AssistantMessage, Message } from "@/hooks/useChat";
 import { citationColor } from "@/lib/citations";
@@ -10,12 +12,11 @@ import { AnswerText } from "./AnswerText";
 type Props = {
   messages: Message[];
   onCite: (answerId: number, n: number) => void;
-  onCopy: (result: QueryResult) => void;
   onRegenerate: (answerId: number) => void;
   busy: boolean;
 };
 
-export function ChatMessages({ messages, onCite, onCopy, onRegenerate, busy }: Props) {
+export function ChatMessages({ messages, onCite, onRegenerate, busy }: Props) {
   const end = useRef<HTMLDivElement>(null);
 
   // Keep the newest message in view whenever the conversation changes.
@@ -40,7 +41,6 @@ export function ChatMessages({ messages, onCite, onCopy, onRegenerate, busy }: P
             key={m.id}
             message={m}
             onCite={(n) => onCite(m.id, n)}
-            onCopy={onCopy}
             onRegenerate={() => onRegenerate(m.id)}
             busy={busy}
           />
@@ -54,12 +54,11 @@ export function ChatMessages({ messages, onCite, onCopy, onRegenerate, busy }: P
 type BubbleProps = {
   message: AssistantMessage;
   onCite: (n: number) => void;
-  onCopy: (result: QueryResult) => void;
   onRegenerate: () => void;
   busy: boolean;
 };
 
-function AssistantBubble({ message, onCite, onCopy, onRegenerate, busy }: BubbleProps) {
+function AssistantBubble({ message, onCite, onRegenerate, busy }: BubbleProps) {
   return (
     <div className="flex w-full items-start gap-3 self-start sm:gap-3.5">
       <div className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-200 bg-gradient-to-tr from-indigo-50 to-indigo-100 text-indigo-600 shadow-2xs sm:flex">
@@ -80,9 +79,11 @@ function AssistantBubble({ message, onCite, onCopy, onRegenerate, busy }: Bubble
           {message.status !== "loading" && (
             <div className="flex items-center gap-1">
               {message.result && (
-                <IconButton label="Copy answer with sources" onClick={() => onCopy(message.result!)}>
-                  <Copy className="h-4 w-4" />
-                </IconButton>
+                <CopyButton
+                  label="Copy answer with sources"
+                  text={() => answerWithSources(message.result!)}
+                  className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                />
               )}
               <IconButton label="Ask again with the current settings" onClick={onRegenerate} disabled={busy}>
                 <RefreshCw className="h-4 w-4" />
@@ -139,7 +140,13 @@ function StatusPill({ result, onCite }: { result: QueryResult; onCite: (n: numbe
       </button>
     );
   }
-  const text = result.status === "llm_unavailable" ? "AI answer unavailable" : "No supporting sources";
+  // "answered" with zero valid citations: the model wrote something but cited nothing we sent.
+  const text =
+    result.status === "llm_unavailable"
+      ? "AI answer unavailable"
+      : result.status === "answered"
+        ? "Uncited — check the sources"
+        : "No supporting sources";
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-amber-800">
       <AlertTriangle className="h-3.5 w-3.5" aria-hidden />

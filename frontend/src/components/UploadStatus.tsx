@@ -19,7 +19,11 @@ export function UploadRows({ uploads, onDismiss }: Props) {
             <Loader2 className="h-5 w-5 shrink-0 animate-spin text-indigo-600" aria-hidden />
             <div className="min-w-0">
               <p className="truncate text-[13px] font-semibold text-slate-900">{u.name}</p>
-              <p className="text-[11.5px] text-slate-600">Reading, splitting and indexing… large PDFs can take a minute.</p>
+              <p className="text-[11.5px] text-slate-600">
+                {u.kind === "link"
+                  ? "Fetching the page and indexing its text…"
+                  : "Reading, splitting and indexing… large PDFs can take a minute."}
+              </p>
             </div>
           </li>
         ) : (
@@ -39,12 +43,17 @@ export function UploadRows({ uploads, onDismiss }: Props) {
   );
 }
 
-/** Small chips above the question box, so uploads started from the chat are visible there too. */
+/** Small chips above the question box, so files and links added from the chat are visible there.
+ *  Hovering a failed chip shows why; clicking any chip opens the Documents view. */
 export function UploadChips({ uploads, onDismiss, onOpen }: Props & { onOpen: () => void }) {
   if (uploads.length === 0) return null;
+  const recent = uploads.slice(-4);
+  // Failure reasons are written out (not just in a tooltip) so they're readable on phones too.
+  const problems = recent.filter((u) => u.status === "error" && u.message);
   return (
-    <div className="mb-2 flex flex-wrap gap-1.5" aria-live="polite">
-      {uploads.slice(-4).map((u) => {
+    <div className="mb-2" aria-live="polite">
+    <div className="flex flex-wrap gap-1.5">
+      {recent.map((u) => {
         const style =
           u.status === "processing"
             ? "border-indigo-200 bg-indigo-50 text-indigo-700"
@@ -57,8 +66,9 @@ export function UploadChips({ uploads, onDismiss, onOpen }: Props & { onOpen: ()
             <button type="button" onClick={onOpen} className="flex min-w-0 items-center gap-1.5 py-0.5" title={u.message ?? "Open Documents"}>
               <Icon className={`h-3.5 w-3.5 shrink-0 ${u.status === "processing" ? "animate-spin" : ""}`} aria-hidden />
               <span className="max-w-[180px] truncate">{u.name}</span>
-              {u.status === "processing" && <span className="opacity-70">· indexing…</span>}
-              {u.status === "error" && <span className="opacity-80">· failed</span>}
+              {u.status === "processing" && <span className="opacity-70">· {u.kind === "link" ? "fetching…" : "indexing…"}</span>}
+              {u.status === "done" && <span className="opacity-70">· added</span>}
+              {u.status === "error" && u.kind !== "notice" && <span className="opacity-80">· failed</span>}
             </button>
             {u.status !== "processing" && (
               <button type="button" onClick={() => onDismiss(u.id)} className="rounded p-0.5 pr-1 opacity-60 hover:opacity-100" aria-label={`Dismiss ${u.name}`}>
@@ -68,6 +78,16 @@ export function UploadChips({ uploads, onDismiss, onOpen }: Props & { onOpen: ()
           </span>
         );
       })}
+    </div>
+    {problems.map((u) => (
+      <p key={u.id} className="mt-1 text-[11.5px] text-rose-700">
+        {u.message!.startsWith(u.name) ? u.message : (
+          <>
+            <span className="font-semibold">{u.name}:</span> {u.message}
+          </>
+        )}
+      </p>
+    ))}
     </div>
   );
 }

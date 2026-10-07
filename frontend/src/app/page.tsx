@@ -11,14 +11,13 @@ import { Header } from "@/components/Header";
 import { Sidebar, type View } from "@/components/Sidebar";
 import { SourceInspector } from "@/components/SourceInspector";
 import { SourcesPanel } from "@/components/SourcesPanel";
-import { Toast, useToast } from "@/components/Toast";
 import { useChat } from "@/hooks/useChat";
 import { useDocuments } from "@/hooks/useDocuments";
 import { useFileDrop } from "@/hooks/useFileDrop";
 import { useHealth } from "@/hooks/useHealth";
 import { useRecentQuestions } from "@/hooks/useRecentQuestions";
-import { answerWithSources, citationsMarkdown, copyText, downloadText } from "@/lib/clipboard";
-import type { QueryResult } from "@/lib/types";
+import { citationsMarkdown, downloadText } from "@/lib/clipboard";
+import { splitLinks } from "@/lib/links";
 
 export default function Home() {
   const [view, setView] = useState<View>("chat");
@@ -27,15 +26,14 @@ export default function Home() {
   // Which answer and which [n] the sources panel is showing.
   const [inspected, setInspected] = useState<{ answerId: number; n: number } | null>(null);
 
-  const { toast, show } = useToast();
+  const [addingLinks, setAddingLinks] = useState(false);
+
   const online = useHealth();
-  const docs = useDocuments(show);
+  const docs = useDocuments();
   const chat = useChat();
   const recent = useRecentQuestions();
-  const dragging = useFileDrop((files) => {
-    if (docs.busy) show("Please wait for the current upload to finish.", "error");
-    else void docs.upload(files);
-  });
+  // Files dropped while another is indexing simply join the queue.
+  const dragging = useFileDrop((files) => void docs.upload(files));
 
   // The answer shown in the sources panel: the inspected one, or else the latest finished one.
   const answers = chat.messages.filter((m) => m.role === "assistant" && m.status === "done");
@@ -48,10 +46,10 @@ export default function Home() {
     setSourcesOpen(true);
   };
 
-  const ask = async (question: string) => {
+  const ask = async (question: string, query?: string) => {
     setView("chat");
     recent.remember(question);
-    const answerId = await chat.ask(question);
+    const answerId = await chat.ask(question, query);
     // On wide screens, open the sources panel automatically the first time there's something to show.
     if (answerId && window.matchMedia("(min-width: 1024px)").matches) {
       setInspected({ answerId, n: 1 });
@@ -59,17 +57,38 @@ export default function Home() {
     }
   };
 
-  const copyAndTell = async (text: string, done: string) => {
-    const ok = await copyText(text);
-    show(ok ? done : "Couldn't copy — your browser blocked clipboard access", ok ? "success" : "error");
+  /** Everything typed in the chat box comes here. Links are added to the workspace first
+   *  (their chips show progress), then whatever text is left is asked as a question.
+   *  Returns text to put back in the box when something needs fixing. */
+  const submit = async (message: string): Promise<string | null> => {
+    const { urls, question } = splitLinks(message);
+    if (urls.length === 0) {
+      void ask(message);
+      return null;
+    }
+
+    setAddingLinks(true);
+    const added = await Promise.all(urls.map((url) => docs.addPage(url)));
+    setAddingLinks(false);
+
+    const failed = urls.filter((_, i) => added[i] === null);
+    if (failed.length > 0) {
+      // The chip says why. Put back the message minus the links that worked, so retrying
+      // doesn't add those pages twice.
+      return urls.reduce((text, url, i) => (added[i] ? text.replace(url, "") : text), message).replace(/\s{2,}/g, " ").trim();
+    }
+    if (!question) return null;            // just links: the "added" chips are the confirmation
+
+    // "Summarise https://…" alone would search for "Summarise". Naming the page(s) points the
+    // search at what was just added, while the chat still shows the message as typed.
+    const titles = added.map((doc) => `“${doc!.title}”`).join(", ");
+    void ask(message, `${question} (about ${urls.length === 1 ? "the page" : "the pages"} ${titles})`);
+    return null;
   };
-  const copyAnswer = (result: QueryResult) => copyAndTell(answerWithSources(result), "Answer copied with its sources");
-  const copyPassage = (text: string) => copyAndTell(text, "Passage copied");
 
   const exportCitations = () => {
     if (!panelResult || panelAnswer?.role !== "assistant") return;
     downloadText("sourcetrail-citations.md", citationsMarkdown(panelAnswer.question, panelResult));
-    show("Citations downloaded as sourcetrail-citations.md");
   };
 
   return (
@@ -104,15 +123,14 @@ export default function Home() {
                   <ChatMessages
                     messages={chat.messages}
                     onCite={inspect}
-                    onCopy={(result) => void copyAnswer(result)}
                     onRegenerate={(id) => void chat.regenerate(id)}
                     busy={chat.loading}
                   />
                 )}
               </div>
               <Composer
-                onSubmit={(q) => void ask(q)}
-                disabled={chat.loading}
+                onSubmit={submit}
+                disabled={chat.loading || addingLinks}
                 onAttach={(files) => void docs.upload(files)}
                 uploading={docs.busy}
                 uploads={docs.uploads}
@@ -172,13 +190,11 @@ export default function Home() {
               result={panelResult}
               selected={inspected?.answerId === panelAnswer.id ? inspected.n : 1}
               onSelect={(n) => setInspected({ answerId: panelAnswer.id, n })}
-              onCopyPassage={(text) => void copyPassage(text)}
             />
           )}
         </SourcesPanel>
       </div>
       <DropOverlay visible={dragging} />
-      <Toast toast={toast} />
     </div>
   );
 }

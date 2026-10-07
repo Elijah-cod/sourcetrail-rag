@@ -1,49 +1,49 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, addUrl, deleteDocument, listDocuments, uploadDocument } from "@/lib/api";
+import { addUrl, deleteDocument, listDocuments, uploadDocument } from "@/lib/api";
+import { shortUrl } from "@/lib/links";
 import { uploadProblem } from "@/lib/uploads";
-import type { DocumentInfo } from "@/lib/types";
+import type { DocumentInfo, IngestResult } from "@/lib/types";
 
-type Notify = (message: string, kind?: "success" | "error") => void;
-
-/** One file the visitor added in this session, and how it's going. */
+/** One file or web page the visitor added in this session, and how it's going.
+ *  Problems (e.g. a failed delete) also appear here, so nothing needs a pop-up. */
 export type UploadItem = {
   id: number;
+  kind: "file" | "link" | "notice";
   name: string;
   status: "processing" | "done" | "error";
   message?: string;      // the reason, when it failed
 };
 
-/** Everything about the document list: loading it, uploading, adding URLs, deleting. */
-export function useDocuments(notify: Notify) {
+const errorText = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
+
+/** Everything about the document list: loading it, uploading, adding web pages, deleting. */
+export function useDocuments() {
   const [documents, setDocuments] = useState<DocumentInfo[] | null>(null);
-  const [busy, setBusy] = useState(false);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const nextId = useRef(1);
+  // A queue: each new job waits for the one before it. The server indexes one document
+  // at a time per visitor anyway, and this means adding more while busy just works.
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
 
-  // Add an upload to the list (returns its id) / change its status later.
-  const track = useCallback((name: string, status: UploadItem["status"], message?: string) => {
-    const item = { id: nextId.current++, name, status, message };
+  const track = useCallback((kind: UploadItem["kind"], name: string, status: UploadItem["status"], message?: string) => {
+    const item = { id: nextId.current++, kind, name, status, message };
     setUploads((list) => [...list, item]);
     return item.id;
   }, []);
   const update = useCallback((id: number, changes: Partial<UploadItem>) => {
     setUploads((list) => list.map((u) => (u.id === id ? { ...u, ...changes } : u)));
   }, []);
-  const dismissUpload = useCallback(
-    (id: number) => setUploads((list) => list.filter((u) => u.id !== id)),
-    [],
-  );
+  const dismissUpload = useCallback((id: number) => setUploads((list) => list.filter((u) => u.id !== id)), []);
 
   const refresh = useCallback(async () => {
     try {
       setDocuments(await listDocuments());
-    } catch (error) {
+    } catch {
       setDocuments((current) => current ?? []);
-      if (error instanceof ApiError) notify(error.message, "error");
     }
-  }, [notify]);
+  }, []);
 
   // Load once when the page opens. State is only set inside the promise callbacks,
   // and `cancelled` stops a late response from updating a page that's already gone.
@@ -54,77 +54,75 @@ export function useDocuments(notify: Notify) {
       .catch((error) => {
         if (cancelled) return;
         setDocuments([]);
-        if (error instanceof ApiError) notify(error.message, "error");
+        track("notice", "Couldn't load your documents", "error", errorText(error, "Is the server running?"));
       });
     return () => {
       cancelled = true;
     };
-  }, [notify]);
+  }, [track]);
+
+  /** Put a job at the back of the queue; resolves with its result when its turn is done. */
+  const enqueue = useCallback(<T,>(job: () => Promise<T>): Promise<T> => {
+    const run = queue.current.then(job, job);
+    queue.current = run.catch(() => undefined);
+    return run;
+  }, []);
+
+  /** Index one item (file or page), keeping its chip up to date. Resolves to the result, or null. */
+  const ingest = useCallback(
+    (id: number, send: () => Promise<IngestResult>) =>
+      enqueue(async () => {
+        try {
+          const result = await send();
+          update(id, { status: "done", name: result.title });
+          await refresh();                                   // show it in the list straight away
+          return result;
+        } catch (error) {
+          update(id, { status: "error", message: errorText(error, "Could not add it") });
+          return null;
+        }
+      }),
+    [enqueue, refresh, update],
+  );
 
   const upload = useCallback(
     async (files: File[]) => {
       // Catch wrong types and oversized files instantly, without uploading them.
-      const ok: { file: File; id: number }[] = [];
-      for (const file of files) {
+      const jobs = files.map((file) => {
         const problem = uploadProblem(file);
-        if (problem) track(file.name, "error", problem);
-        else ok.push({ file, id: track(file.name, "processing") });
-      }
-      if (ok.length === 0) return;
-
-      setBusy(true);
-      try {
-        // One at a time: each file is extracted, chunked and embedded on the server.
-        for (const { file, id } of ok) {
-          try {
-            const result = await uploadDocument(file);
-            update(id, { status: "done", name: result.title });
-            notify(`Added “${result.title}”`);
-            await refresh();                   // show it in the list straight away
-          } catch (error) {
-            update(id, { status: "error", message: error instanceof Error ? error.message : "Upload failed" });
-          }
+        if (problem) {
+          track("file", file.name, "error", problem);
+          return Promise.resolve(null);
         }
-      } finally {
-        setBusy(false);
-        await refresh();
-      }
+        return ingest(track("file", file.name, "processing"), () => uploadDocument(file));
+      });
+      return Promise.all(jobs);
     },
-    [notify, refresh, track, update],
+    [ingest, track],
   );
 
+  /** Add a web page. Resolves to its title and id, or null if it couldn't be added. */
   const addPage = useCallback(
-    async (url: string) => {
-      setBusy(true);
-      try {
-        const result = await addUrl(url);
-        notify(`Added “${result.title}”`);
-        await refresh();
-        return true;
-      } catch (error) {
-        notify(error instanceof Error ? error.message : "Could not add that page", "error");
-        return false;
-      } finally {
-        setBusy(false);
-      }
-    },
-    [notify, refresh],
+    (url: string) => ingest(track("link", shortUrl(url), "processing"), () => addUrl(url)),
+    [ingest, track],
   );
 
   const remove = useCallback(
     async (doc: DocumentInfo) => {
       if (!window.confirm(`Delete “${doc.title}”? This can't be undone.`)) return;
+      // Take it off the list at once; the refresh below puts it back if the delete failed.
+      setDocuments((list) => list?.filter((d) => d.id !== doc.id) ?? null);
       try {
         await deleteDocument(doc.id);
-        notify(`Deleted “${doc.title}”`);
       } catch (error) {
-        notify(error instanceof Error ? error.message : "Delete failed", "error");
+        track("notice", `Couldn't delete “${doc.title}”`, "error", errorText(error, "Delete failed"));
       } finally {
         await refresh();
       }
     },
-    [notify, refresh],
+    [refresh, track],
   );
 
+  const busy = uploads.some((u) => u.status === "processing");
   return { documents, busy, upload, addPage, remove, uploads, dismissUpload };
 }

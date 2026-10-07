@@ -1,15 +1,16 @@
 "use client";
 
-import { ArrowUp, Loader2, Paperclip } from "lucide-react";
-import { useRef, useState, type KeyboardEvent } from "react";
+import { ArrowUp, Link2, Loader2, Paperclip } from "lucide-react";
+import { useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import type { Settings } from "@/hooks/useChat";
 import type { UploadItem } from "@/hooks/useDocuments";
+import { splitLinks } from "@/lib/links";
 import { ACCEPTED_FILES } from "@/lib/uploads";
 import { SettingsPopover } from "./SettingsPopover";
 import { UploadChips } from "./UploadStatus";
 
 type Props = {
-  onSubmit: (question: string) => void;
+  onSubmit: (message: string) => Promise<string | null>;   // text to put back in the box, if any
   onAttach: (files: File[]) => void;
   uploading: boolean;
   uploads: UploadItem[];
@@ -20,23 +21,43 @@ type Props = {
   disabled?: boolean;
 };
 
-/** The prompt box at the bottom of the chat. Enter sends, Shift+Enter adds a new line. */
+/** The prompt box at the bottom of the chat. Enter sends, Shift+Enter adds a new line.
+ *  It takes everything the workspace can: questions, web links (typed or pasted) and files
+ *  (Attach, paste from the clipboard, or drop anywhere on the page). */
 export function Composer(props: Props) {
   const { onSubmit, onAttach, uploading, uploads, onDismissUpload, onOpenDocuments, disabled } = props;
   const [text, setText] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const send = () => {
-    const question = text.trim();
-    if (!question || disabled) return;
-    onSubmit(question);
+  const send = async () => {
+    const message = text.trim();
+    if (!message || disabled) return;
     setText("");
+    const putBack = await onSubmit(message);    // e.g. a link that couldn't be added, to fix
+    if (putBack) setText(putBack);
   };
+
+  // Files copied to the clipboard (e.g. Copy in Finder, then Cmd+V here) become uploads.
+  const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(event.clipboardData.files);
+    if (files.length === 0) return;      // ordinary text: let the browser paste it
+    event.preventDefault();
+    onAttach(files);
+  };
+
+  // Live hint under the box when the message contains links.
+  const { urls, question } = splitLinks(text);
+  const hint =
+    urls.length === 0
+      ? null
+      : `${urls.length === 1 ? "This page" : `These ${urls.length} pages`} will be added to your workspace${
+          question ? ", then your question is answered" : ""
+        }.`;
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
-      send();
+      void send();
     }
   };
 
@@ -53,21 +74,27 @@ export function Composer(props: Props) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
+          onPaste={onPaste}
           maxLength={1000}
-          placeholder="Ask a question about the demo docs or your uploads…"
+          placeholder="Ask a question, paste a link, or attach a file…"
           className="w-full resize-none bg-transparent px-2 py-1 text-[14px] leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none"
         />
+        {hint && (
+          <p className="flex items-center gap-1.5 px-2 pb-1 text-[11.5px] text-indigo-700">
+            <Link2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {hint}
+          </p>
+        )}
         <div className="mt-1 flex items-center justify-between border-t border-slate-100 px-1 pt-2">
           <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
-              disabled={uploading}
-              className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:cursor-wait disabled:opacity-60"
-              title="Upload a document to your workspace"
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              title="Add a PDF, DOCX, Markdown, TXT or CSV file (or paste a link in the box)"
             >
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Paperclip className="h-4 w-4" aria-hidden />}
-              {uploading ? "Uploading…" : "Attach"}
+              Attach
             </button>
             <SettingsPopover settings={props.settings} onChange={props.onChangeSettings} />
             <input
@@ -86,10 +113,10 @@ export function Composer(props: Props) {
             <span className="hidden font-mono text-[11px] text-slate-400 md:inline">Enter to send</span>
             <button
               type="button"
-              onClick={send}
+              onClick={() => void send()}
               disabled={disabled || !text.trim()}
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 transition-all hover:bg-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Send question"
+              aria-label="Send"
             >
               <ArrowUp className="h-[18px] w-[18px]" />
             </button>

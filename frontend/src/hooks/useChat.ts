@@ -8,7 +8,8 @@ export type UserMessage = { id: number; role: "user"; text: string };
 export type AssistantMessage = {
   id: number;
   role: "assistant";
-  question: string;
+  question: string;      // what the visitor typed (shown in the chat)
+  query: string;         // what was actually searched (usually the same, see ask())
   status: "loading" | "done" | "error";
   result?: QueryResult;
   error?: string;
@@ -23,22 +24,24 @@ export function useChat() {
   const [settings, setSettings] = useState<Settings>({ mode: "hybrid_rerank", topK: 6 });
   const nextId = useRef(1);
 
+  /** `query` lets the page search for something more specific than what was typed:
+   *  "Summarise https://…" is shown as typed but searched as "Summarise <page title>". */
   const ask = useCallback(
-    async (question: string) => {
+    async (question: string, query: string = question) => {
       const answerId = nextId.current + 1;
       nextId.current += 2;
       // Show the question and a "thinking…" placeholder immediately, before the server answers.
       setMessages((list) => [
         ...list,
         { id: answerId - 1, role: "user", text: question },
-        { id: answerId, role: "assistant", question, status: "loading" },
+        { id: answerId, role: "assistant", question, query, status: "loading" },
       ]);
 
       const finish = (changes: Partial<AssistantMessage>) =>
         setMessages((list) => list.map((m) => (m.id === answerId && m.role === "assistant" ? { ...m, ...changes } : m)));
 
       try {
-        const result = await askQuestion(question, settings.mode, settings.topK);
+        const result = await askQuestion(query, settings.mode, settings.topK);
         finish({ status: "done", result });
         return answerId;
       } catch (error) {
@@ -62,7 +65,7 @@ export function useChat() {
         setMessages((list) => list.map((m) => (m.id === answerId && m.role === "assistant" ? { ...m, ...changes } : m)));
       update({ status: "loading", result: undefined, error: undefined });
       try {
-        update({ status: "done", result: await askQuestion(target.question, settings.mode, settings.topK) });
+        update({ status: "done", result: await askQuestion(target.query, settings.mode, settings.topK) });
       } catch (error) {
         update({ status: "error", error: error instanceof Error ? error.message : "Something went wrong." });
       }

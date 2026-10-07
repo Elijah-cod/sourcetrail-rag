@@ -1,4 +1,5 @@
-import { Copy, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
+import { CopyButton } from "./CopyButton";
 import { citationColor, citationLabel, relevanceLabel, sourceFor } from "@/lib/citations";
 import type { Citation, QueryResult } from "@/lib/types";
 import { FileTypeIcon } from "./FileTypeIcon";
@@ -7,11 +8,10 @@ type Props = {
   result: QueryResult;
   selected: number;                  // the citation number being inspected
   onSelect: (n: number) => void;
-  onCopyPassage: (text: string) => void;
 };
 
 /** Contents of the sources panel: the inspected citation, then the other sources of the answer. */
-export function SourceInspector({ result, selected, onSelect, onCopyPassage }: Props) {
+export function SourceInspector({ result, selected, onSelect }: Props) {
   const current = result.citations.find((c) => c.n === selected) ?? result.citations[0];
   if (!current) {
     return <p className="mt-10 text-center text-[13px] text-slate-500">This answer has no citations to inspect.</p>;
@@ -59,14 +59,13 @@ export function SourceInspector({ result, selected, onSelect, onCopyPassage }: P
               Open original page
             </a>
           ) : (
-            <button
-              type="button"
-              onClick={() => onCopyPassage(current.snippet)}
+            <CopyButton
+              label="Copy passage"
+              text={() => current.snippet}
               className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-50 hover:text-indigo-800"
             >
-              <Copy className="h-3.5 w-3.5" aria-hidden />
               Copy passage
-            </button>
+            </CopyButton>
           )}
           <span className="max-w-full truncate rounded border border-slate-200/50 bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-500">
             {current.chunk_id}

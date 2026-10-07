@@ -10,8 +10,8 @@ import { UploadRows } from "./UploadStatus";
 
 type Props = {
   documents: DocumentInfo[] | null;              // null = still loading
-  onUpload: (files: File[]) => Promise<void>;
-  onAddUrl: (url: string) => Promise<boolean>;   // true if it worked (so we can clear the box)
+  onUpload: (files: File[]) => Promise<unknown>;
+  onAddUrl: (url: string) => Promise<unknown>;   // resolves to null if it failed
   onDelete: (doc: DocumentInfo) => Promise<void>;
   busy: boolean;                                 // an upload / URL import is running
   dragging: boolean;                             // a file is being dragged over the window
@@ -35,7 +35,10 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
 
   const submitUrl = async (event: FormEvent) => {
     event.preventDefault();
-    if (url.trim() && (await onAddUrl(url.trim()))) setUrl("");
+    const value = url.trim();
+    if (!value) return;
+    setUrl("");                                    // progress and any problem show in the rows below
+    if ((await onAddUrl(value)) === null) setUrl(value);
   };
 
   return (
@@ -53,8 +56,7 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
         <button
           type="button"
           onClick={() => fileInput.current?.click()}
-          disabled={busy}
-          className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-6 text-center transition-colors disabled:cursor-wait disabled:opacity-60 ${
+          className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
             dragging ? "border-indigo-500 bg-indigo-50" : "border-slate-300 bg-white hover:border-indigo-400 hover:bg-indigo-50/40"
           }`}
         >
@@ -63,7 +65,7 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
           ) : (
             <UploadCloud className="h-6 w-6 text-indigo-600" aria-hidden />
           )}
-          <span className="text-[13px] font-semibold text-slate-800">{busy ? "Processing…" : "Upload files"}</span>
+          <span className="text-[13px] font-semibold text-slate-800">{busy ? "Indexing… add more any time" : "Upload files"}</span>
           <span className="text-[11.5px] text-slate-500">PDF, DOCX, Markdown, TXT or CSV — click, or drop files anywhere</span>
         </button>
         <input
@@ -95,7 +97,7 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
             />
             <button
               type="submit"
-              disabled={busy || !url.trim()}
+              disabled={!url.trim()}
               className="rounded-lg bg-indigo-600 px-3 py-1.5 text-[13px] font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
             >
               Add
