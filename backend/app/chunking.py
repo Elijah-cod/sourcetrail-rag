@@ -102,8 +102,11 @@ def chunk_document(doc: ExtractedDocument, slug: str, max_chars: int = MAX_CHARS
             pieces.append(_csv_piece(group))
     else:
         for section in doc.sections:
+            cursor = 0
             for text in split_text(section.text, max_chars, overlap_chars):
-                pieces.append((text, section.page, section.heading))
+                start = section.text.find(text[:80], cursor)
+                cursor = max(start, cursor) + 1
+                pieces.append((text, section.page, _heading_at(section.text, start, section.heading)))
 
     chunks = []
     for ord_, (text, page, section_name) in enumerate(pieces):
@@ -111,6 +114,20 @@ def chunk_document(doc: ExtractedDocument, slug: str, max_chars: int = MAX_CHARS
         chunks.append(Chunk(id=f"{slug}{location}:c{ord_:03d}", ord=ord_, text=text,
                             page=page, section=section_name))
     return chunks
+
+
+_HEADING_LINE = re.compile(r"^#{1,6} (.+)$", re.MULTILINE)
+
+
+def _heading_at(text: str, position: int, default: str | None) -> str | None:
+    """The heading a chunk falls under: the last Markdown heading at or before where it starts.
+    (PDF pages are stored as Markdown, so a chunk on page 37 gets "3.6 Statelessness and state".)"""
+    heading = default
+    for match in _HEADING_LINE.finditer(text):
+        if position < 0 or match.start() > position:
+            break
+        heading = match.group(1).strip()
+    return heading
 
 
 def _csv_piece(rows: list) -> tuple[str, None, str]:

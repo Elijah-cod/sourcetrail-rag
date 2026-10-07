@@ -75,3 +75,47 @@ def test_helpers():
     assert guess_year("report_2019_final.pdf") == 2019
     assert guess_year("v12345.pdf") is None
     assert clean_text("a  b \r\n\n\n\nc\x00") == "a b\n\nc"
+
+
+# ---------- PDF structure (tests/fixtures/structured.pdf, see make_structured_pdf.py) ----------
+
+def structured():
+    return extract_file("handbook (2).pdf", (FIXTURES / "structured.pdf").read_bytes())
+
+
+def test_pdf_placeholder_metadata_title_is_ignored():
+    # The metadata says "untitled"; the big heading on page 1 is the real title.
+    assert structured().title == "Aurora Operations Handbook"
+
+
+def test_pdf_headings_lists_and_paragraphs_are_kept():
+    page1 = structured().sections[0].text
+    assert page1.startswith("# Aurora Operations Handbook\n\n## 1. Service Availability\n\n")
+    assert "\n\n### Maintenance windows\n\n" in page1
+    assert ("- Customers receive notice at least 72 hours ahead.\n"
+            "- Emergency fixes may happen at any time.\n") in page1
+    # Wrapped lines are joined back into one paragraph.
+    assert "Planned maintenance is excluded from the calculation when customers are notified in advance." in page1
+
+
+def test_pdf_running_header_and_page_numbers_are_dropped():
+    for section in structured().sections:
+        assert "Aurora Operations Handbook" not in section.text.replace("# Aurora Operations Handbook", "")
+        assert not any(line.strip().isdigit() for line in section.text.splitlines())
+
+
+def test_pdf_heading_carries_over_page_breaks():
+    pages = structured().sections
+    assert [p.heading for p in pages] == [None, "Maintenance windows", "2. Incident Response"]
+
+
+def test_file_name_fallback_title_is_readable():
+    from app.ingest.files import _stem
+    assert _stem("BSR+110+-+Theological+Writing+Skills (8).pdf") == "BSR 110 - Theological Writing Skills"
+    assert _stem("annual_report-2024.pdf") == "annual report 2024"
+
+
+def test_hyphenated_line_breaks_are_rejoined():
+    from app.ingest.pdf_layout import _join
+    assert _join("planned main-", "tenance") == "planned maintenance"
+    assert _join("state-of-the-", "Art") == "state-of-the- Art"      # capital: a real hyphen, keep it

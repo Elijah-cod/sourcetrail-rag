@@ -9,12 +9,12 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "pydantic-settings>=2.4",
     "psycopg[binary,pool]>=3.2",
-    "pypdf>=6.19.0",
     "python-docx>=1.2.0",
     "trafilatura>=2.3.0",
     "httpx>=0.28.1",
     "fastembed>=0.8.1",
     "python-multipart>=0.0.32",
+    "pdfplumber>=0.11.10",
 ]
 
 [dependency-groups]

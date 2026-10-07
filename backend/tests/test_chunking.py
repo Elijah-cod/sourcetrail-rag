@@ -73,3 +73,13 @@ def test_slugify():
     assert slugify("Annual Report (2024).pdf") == "annual-report-2024-pdf"
     assert slugify("!!!") == "document"
     assert len(slugify("word " * 50)) <= 60
+
+
+def test_pdf_chunks_are_labelled_with_their_heading():
+    from pathlib import Path
+
+    from app.ingest.files import extract_file
+    data = (Path(__file__).parent / "fixtures" / "structured.pdf").read_bytes()
+    chunks = chunk_document(extract_file("handbook.pdf", data), "handbook")
+    assert [(c.page, c.section) for c in chunks] == [
+        (1, "Aurora Operations Handbook"), (2, "2. Incident Response"), (3, "Recovery objectives")]
