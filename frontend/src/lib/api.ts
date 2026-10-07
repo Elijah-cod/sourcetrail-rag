@@ -1,5 +1,5 @@
 // Every call to the backend goes through this file.
-import type { DocumentInfo, IngestResult } from "./types";
+import type { Chunk, DocumentInfo, IngestResult, Mode, QueryResult } from "./types";
 
 /** An error from the API, carrying the human-readable message the backend sent. */
 export class ApiError extends Error {
@@ -67,3 +67,13 @@ export const addUrl = (url: string) =>
 
 export const deleteDocument = (id: string) =>
   request<void>(`/documents/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+export const askQuestion = (question: string, mode: Mode, topK: number) =>
+  request<QueryResult>("/query", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, mode, top_k: topK }),
+  });
+
+export const getChunk = (documentId: string, chunkId: string) =>
+  request<Chunk>(`/documents/${encodeURIComponent(documentId)}/chunks/${encodeURIComponent(chunkId)}`);

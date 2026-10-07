@@ -2,8 +2,10 @@
 
 import { ArrowUp, Loader2, Paperclip } from "lucide-react";
 import { useRef, useState, type KeyboardEvent } from "react";
+import type { Settings } from "@/hooks/useChat";
 import type { UploadItem } from "@/hooks/useDocuments";
 import { ACCEPTED_FILES } from "@/lib/uploads";
+import { SettingsPopover } from "./SettingsPopover";
 import { UploadChips } from "./UploadStatus";
 
 type Props = {
@@ -13,11 +15,14 @@ type Props = {
   uploads: UploadItem[];
   onDismissUpload: (id: number) => void;
   onOpenDocuments: () => void;
+  settings: Settings;
+  onChangeSettings: (settings: Settings) => void;
   disabled?: boolean;
 };
 
 /** The prompt box at the bottom of the chat. Enter sends, Shift+Enter adds a new line. */
-export function Composer({ onSubmit, onAttach, uploading, uploads, onDismissUpload, onOpenDocuments, disabled }: Props) {
+export function Composer(props: Props) {
+  const { onSubmit, onAttach, uploading, uploads, onDismissUpload, onOpenDocuments, disabled } = props;
   const [text, setText] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -64,6 +69,7 @@ export function Composer({ onSubmit, onAttach, uploading, uploads, onDismissUplo
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Paperclip className="h-4 w-4" aria-hidden />}
               {uploading ? "Uploading…" : "Attach"}
             </button>
+            <SettingsPopover settings={props.settings} onChange={props.onChangeSettings} />
             <input
               ref={fileInput}
               type="file"
