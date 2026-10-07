@@ -11,8 +11,8 @@ import { AnswerText } from "./AnswerText";
 
 type Props = {
   messages: Message[];
-  onCite: (answerId: number, n: number) => void;
-  active: { answerId: number; n: number } | null;   // the citation open in the sources panel
+  onCite: (answerId: number, n: number, claim?: string) => void;
+  active: { answerId: number; n: number; claim?: string } | null;   // the citation open in the sources panel
   onRegenerate: (answerId: number) => void;
   busy: boolean;
 };
@@ -41,8 +41,9 @@ export function ChatMessages({ messages, onCite, active, onRegenerate, busy }: P
           <AssistantBubble
             key={m.id}
             message={m}
-            onCite={(n) => onCite(m.id, n)}
+            onCite={(n, claim) => onCite(m.id, n, claim)}
             activeN={active?.answerId === m.id ? active.n : null}
+            activeClaim={active?.answerId === m.id ? active.claim : undefined}
             onRegenerate={() => onRegenerate(m.id)}
             busy={busy}
           />
@@ -55,13 +56,14 @@ export function ChatMessages({ messages, onCite, active, onRegenerate, busy }: P
 
 type BubbleProps = {
   message: AssistantMessage;
-  onCite: (n: number) => void;
+  onCite: (n: number, claim?: string) => void;
   activeN: number | null;
+  activeClaim?: string;
   onRegenerate: () => void;
   busy: boolean;
 };
 
-function AssistantBubble({ message, onCite, activeN, onRegenerate, busy }: BubbleProps) {
+function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, busy }: BubbleProps) {
   return (
     <div className="flex w-full items-start gap-3 self-start sm:gap-3.5">
       <div className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-200 bg-gradient-to-tr from-indigo-50 to-indigo-100 text-indigo-600 shadow-2xs sm:flex">
@@ -105,7 +107,7 @@ function AssistantBubble({ message, onCite, activeN, onRegenerate, busy }: Bubbl
           )}
           {message.status === "done" && message.result && (
             <div className="space-y-4">
-              <AnswerText text={message.result.answer} citations={message.result.citations} onCite={onCite} activeN={activeN} />
+              <AnswerText text={message.result.answer} citations={message.result.citations} onCite={onCite} activeN={activeN} activeClaim={activeClaim} />
               <Timings result={message.result} />
               <Referenced result={message.result} onCite={onCite} />
             </div>

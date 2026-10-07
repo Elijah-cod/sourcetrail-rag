@@ -1,8 +1,10 @@
 "use client";
 
 import { ChevronDown, ExternalLink } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { citationColor, documentKind, matchStrength, passageLocation, sourceFor } from "@/lib/citations";
+import { splitSentences, supportingSentences } from "@/lib/highlight";
+import { formatPassage, previewText, type Block } from "@/lib/passage";
 import type { Citation, QueryResult } from "@/lib/types";
 import { CopyButton } from "./CopyButton";
 import { FileTypeIcon } from "./FileTypeIcon";
@@ -11,6 +13,7 @@ type Props = {
   result: QueryResult;
   selected: number;                  // the citation number being inspected
   flash: number;                     // changes on every click in the chat, to replay the highlight
+  claim?: string;                    // the answer sentence that was clicked, to highlight its support
   onSelect: (n: number) => void;
 };
 
@@ -19,12 +22,16 @@ type Props = {
  * which documents the answer used, and which passages of each one.
  * The selected passage (the [n] clicked in the chat) is expanded, highlighted and scrolled to.
  */
-export function SourceInspector({ result, selected, flash, onSelect }: Props) {
+export function SourceInspector({ result, selected, flash, claim, onSelect }: Props) {
   const items = useRef(new Map<number, HTMLElement>());
 
-  // Bring the selected passage into view whenever a citation is clicked (even the same one again).
+  // Whenever a citation is clicked (even the same one again), bring its highlighted sentence
+  // into view, or the top of the passage if nothing is highlighted.
   useEffect(() => {
-    items.current.get(selected)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const item = items.current.get(selected);
+    const mark = item?.querySelector("mark[data-support]");
+    if (mark) mark.scrollIntoView({ behavior: "smooth", block: "center" });
+    else item?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [selected, flash]);
 
   if (result.citations.length === 0) {
@@ -80,6 +87,7 @@ export function SourceInspector({ result, selected, flash, onSelect }: Props) {
                   result={result}
                   active={c.n === selected}
                   flash={flash}
+                  claim={c.n === selected ? claim : undefined}
                   onSelect={() => onSelect(c.n)}
                   register={(el) => (el ? items.current.set(c.n, el) : items.current.delete(c.n))}
                 />
@@ -97,13 +105,18 @@ type PassageProps = {
   result: QueryResult;
   active: boolean;
   flash: number;
+  claim?: string;
   onSelect: () => void;
   register: (el: HTMLLIElement | null) => void;
 };
 
-function Passage({ citation: c, result, active, flash, onSelect, register }: PassageProps) {
+function Passage({ citation: c, result, active, flash, claim, onSelect, register }: PassageProps) {
   const match = matchStrength(sourceFor(c, result.sources));
   const color = citationColor(c.n);
+  const blocks = formatPassage(c);
+  // Only the open passage highlights, and only when we know which answer sentence was clicked.
+  const marks = active && claim ? supportingSentences(claim, blocks.flatMap(blockSentences)) : new Set<string>();
+
   return (
     <li
       ref={register}
@@ -117,9 +130,7 @@ function Passage({ citation: c, result, active, flash, onSelect, register }: Pas
 
       <button type="button" onClick={onSelect} aria-expanded={active} className="relative flex w-full items-center gap-2 px-2.5 py-2 text-left">
         <span className={`font-mono text-xs font-bold ${color.num}`}>[{c.n}]</span>
-        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-slate-700" title={`Passage ID: ${c.chunk_id}`}>
-          {passageLocation(c)}
-        </span>
+        <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-slate-700">{passageLocation(c)}</span>
         {match && (
           <span title={match.hint} className={`shrink-0 rounded-full border px-2 py-0.5 text-[10.5px] font-semibold ${match.tone}`}>
             {match.label}
@@ -130,7 +141,22 @@ function Passage({ citation: c, result, active, flash, onSelect, register }: Pas
 
       {active ? (
         <div className="relative px-2.5 pb-2.5">
-          <PassageText text={readable(c)} />
+          {claim && (
+            <p className="mb-1.5 text-[11px] text-slate-500">
+              {marks.size > 0 ? (
+                <>
+                  <mark className="rounded bg-yellow-200 px-1 text-slate-800">Highlighted</mark>: the part that supports the sentence you clicked.
+                </>
+              ) : (
+                "This passage supports the sentence you clicked as a whole."
+              )}
+            </p>
+          )}
+          <div className="space-y-2.5 rounded-md border-l-2 border-indigo-500 bg-white p-3 text-[12.5px] leading-relaxed text-slate-700 shadow-2xs">
+            {blocks.map((block, i) => (
+              <BlockView key={i} block={block} marks={marks} />
+            ))}
+          </div>
           <div className="mt-1.5 flex justify-end">
             <CopyButton
               label="Copy passage"
@@ -144,50 +170,62 @@ function Passage({ citation: c, result, active, flash, onSelect, register }: Pas
       ) : (
         // Padding goes on the wrapper: inside a line-clamped element it would reveal part of line 3.
         <div className="relative px-2.5 pb-2">
-          <p className="line-clamp-2 text-[11.5px] leading-relaxed text-slate-500">{readable(c)}</p>
+          <p className="line-clamp-2 text-[11.5px] leading-relaxed text-slate-500">{previewText(blocks)}</p>
         </div>
       )}
     </li>
   );
 }
 
-const PREVIEW_CHARS = 600;
-
-/** The quoted passage. Long ones start shortened, with a button to show the rest. */
-function PassageText({ text }: { text: string }) {
-  const [full, setFull] = useState(false);
-  const long = text.length > PREVIEW_CHARS;
-  // Cut at the last space before the limit, so no word is split in half.
-  const shown = !long || full ? text : `${text.slice(0, text.lastIndexOf(" ", PREVIEW_CHARS))}…`;
+/** One readable piece of a passage: a heading, a paragraph, or a spreadsheet record. */
+function BlockView({ block, marks }: { block: Block; marks: Set<string> }) {
+  if (block.kind === "heading") return <p className="font-semibold text-slate-900"><Marked text={block.text} marks={marks} /></p>;
+  if (block.kind === "text") return <p className="whitespace-pre-line break-words"><Marked text={block.text} marks={marks} /></p>;
   return (
-    <blockquote className="whitespace-pre-wrap break-words rounded-md border-l-2 border-indigo-500 bg-white p-2.5 text-[12.5px] leading-relaxed text-slate-700 shadow-2xs">
-      {shown}
-      {long && (
-        <button type="button" onClick={() => setFull(!full)} className="mt-1 block text-[11.5px] font-semibold text-indigo-600 hover:text-indigo-800">
-          {full ? "Show less" : "Show full passage"}
-        </button>
+    <div className="space-y-1.5 border-b border-slate-100 pb-2.5 last:border-0 last:pb-0">
+      {block.title && <p className="text-[13px] font-semibold text-slate-900"><Marked text={block.title} marks={marks} /></p>}
+      {block.details.length > 0 && (
+        <dl className="flex flex-wrap gap-1.5">
+          {block.details.map((f) => (
+            <div key={f.label} className="flex gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px]">
+              <dt className="text-slate-500">{f.label}:</dt>
+              <dd className="font-medium text-slate-700">{f.value}</dd>
+            </div>
+          ))}
+        </dl>
       )}
-    </blockquote>
+      {block.body.map((f, i) => (
+        <div key={i}>
+          {f.label && <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{f.label}</p>}
+          <p className="break-words"><Marked text={f.value} marks={marks} /></p>
+        </div>
+      ))}
+    </div>
   );
 }
 
-/** Make a passage pleasant to read for people who don't know Markdown.
- *  - PDFs keep the PDF's line wraps ("closest in meaning\nusing\ncosine…"): join them back into
- *    sentences, keeping blank-line paragraph breaks.
- *  - Markdown and web pages: drop ``` fence lines, `code` backticks and **bold** stars.
- *  - Everywhere: no more than one blank line in a row.
- *  "Copy passage" still copies the original text. */
-function readable(c: Citation): string {
-  let text = c.snippet;
-  if (c.source_type === "pdf") {
-    text = text.replace(/([^\n])\n(?!\n)/g, "$1 ");
-  } else {
-    text = text
-      .replace(/^[ \t]*```.*$/gm, "")
-      .replace(/`([^`\n]+)`/g, "$1")
-      .replace(/\*\*([^*\n]+)\*\*/g, "$1");
-  }
-  return text.replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
+/** Text with the supporting sentences wrapped in <mark>. (React escapes everything: no HTML.) */
+function Marked({ text, marks }: { text: string; marks: Set<string> }) {
+  if (marks.size === 0) return <>{text}</>;
+  return (
+    <>
+      {splitSentences(text).map((piece, i) =>
+        marks.has(piece.trim()) ? (
+          <mark key={i} data-support className="rounded bg-yellow-200 px-0.5 text-slate-900 [box-decoration-break:clone]">
+            {piece}
+          </mark>
+        ) : (
+          <Fragment key={i}>{piece}</Fragment>
+        ),
+      )}
+    </>
+  );
+}
+
+/** Every sentence a block shows, for choosing which ones to highlight. */
+function blockSentences(block: Block): string[] {
+  const texts = block.kind === "record" ? [block.title ?? "", ...block.body.map((f) => f.value)] : [block.text];
+  return texts.flatMap(splitSentences);
 }
 
 /** Only real web links become clickable — never "javascript:" or other schemes. */

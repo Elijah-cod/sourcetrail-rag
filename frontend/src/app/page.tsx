@@ -25,7 +25,8 @@ export default function Home() {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   // Which answer and which [n] the sources panel is showing. `flash` counts clicks, so clicking
   // the same citation twice still replays the highlight in the panel.
-  const [inspected, setInspected] = useState<{ answerId: number; n: number; flash: number } | null>(null);
+  // `claim` is the answer sentence the clicked [n] belongs to, highlighted in the passage.
+  const [inspected, setInspected] = useState<{ answerId: number; n: number; flash: number; claim?: string } | null>(null);
 
   const [addingLinks, setAddingLinks] = useState(false);
 
@@ -42,8 +43,8 @@ export default function Home() {
     answers.find((m) => m.id === inspected?.answerId) ?? (answers.length ? answers[answers.length - 1] : undefined);
   const panelResult = panelAnswer?.role === "assistant" ? panelAnswer.result : undefined;
 
-  const inspect = (answerId: number, n: number) => {
-    setInspected((prev) => ({ answerId, n, flash: (prev?.flash ?? 0) + 1 }));
+  const inspect = (answerId: number, n: number, claim?: string) => {
+    setInspected((prev) => ({ answerId, n, claim, flash: (prev?.flash ?? 0) + 1 }));
     setSourcesOpen(true);
   };
 
@@ -192,6 +193,7 @@ export default function Home() {
               result={panelResult}
               selected={inspected?.answerId === panelAnswer.id ? inspected.n : 1}
               flash={inspected?.flash ?? 0}
+              claim={inspected?.answerId === panelAnswer.id ? inspected.claim : undefined}
               onSelect={(n) => setInspected((prev) => ({ answerId: panelAnswer.id, n, flash: prev?.flash ?? 0 }))}
             />
           )}

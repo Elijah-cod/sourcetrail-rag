@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from "react";
+import { claimBefore } from "@/lib/highlight";
 import type { Citation } from "@/lib/types";
 import { CitationChip } from "./CitationChip";
 
@@ -12,21 +13,31 @@ import { CitationChip } from "./CitationChip";
  * which React escapes automatically.
  */
 
-type Props = { text: string; citations: Citation[]; onCite: (n: number) => void; activeN?: number | null };
+// onCite also gets the answer sentence the [n] belongs to, so the passage can highlight it.
+type Props = {
+  text: string;
+  citations: Citation[];
+  onCite: (n: number, claim?: string) => void;
+  activeN?: number | null;       // the citation open in the panel…
+  activeClaim?: string;          // …and which sentence it was clicked from, so only that chip is ringed
+};
 
 const LIST_ITEM = /^\s*(?:[-*•]|\d+[.)])\s+/;
 const INLINE = /(\*\*[^*]+\*\*|`[^`]+`|\[\d+\])/g;   // the pieces we know how to style
 
-export function AnswerText({ text, citations, onCite, activeN = null }: Props) {
+export function AnswerText({ text, citations, onCite, activeN = null, activeClaim }: Props) {
   const byNumber = new Map(citations.map((c) => [c.n, c]));
 
   const inline = (line: string, keyPrefix: string): ReactNode[] =>
-    line.split(INLINE).map((part, i) => {
+    line.split(INLINE).map((part, i, parts) => {
       const key = `${keyPrefix}-${i}`;
       const cite = part.match(/^\[(\d+)\]$/);
       if (cite) {
         const citation = byNumber.get(Number(cite[1]));
-        return citation ? <CitationChip key={key} citation={citation} active={citation.n === activeN} onClick={() => onCite(citation.n)} /> : part;
+        if (!citation) return part;
+        const claim = claimBefore(parts.slice(0, i).join(""));
+        const active = citation.n === activeN && (activeClaim === undefined || activeClaim === claim);
+        return <CitationChip key={key} citation={citation} active={active} onClick={() => onCite(citation.n, claim)} />;
       }
       if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
         return <strong key={key} className="font-semibold text-slate-900">{part.slice(2, -2)}</strong>;
