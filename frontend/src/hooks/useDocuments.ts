@@ -1,17 +1,40 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, addUrl, deleteDocument, listDocuments, uploadDocument } from "@/lib/api";
-import { plural } from "@/lib/format";
 import { uploadProblem } from "@/lib/uploads";
 import type { DocumentInfo } from "@/lib/types";
 
 type Notify = (message: string, kind?: "success" | "error") => void;
 
+/** One file the visitor added in this session, and how it's going. */
+export type UploadItem = {
+  id: number;
+  name: string;
+  status: "processing" | "done" | "error";
+  message?: string;      // the reason, when it failed
+};
+
 /** Everything about the document list: loading it, uploading, adding URLs, deleting. */
 export function useDocuments(notify: Notify) {
   const [documents, setDocuments] = useState<DocumentInfo[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploads, setUploads] = useState<UploadItem[]>([]);
+  const nextId = useRef(1);
+
+  // Add an upload to the list (returns its id) / change its status later.
+  const track = useCallback((name: string, status: UploadItem["status"], message?: string) => {
+    const item = { id: nextId.current++, name, status, message };
+    setUploads((list) => [...list, item]);
+    return item.id;
+  }, []);
+  const update = useCallback((id: number, changes: Partial<UploadItem>) => {
+    setUploads((list) => list.map((u) => (u.id === id ? { ...u, ...changes } : u)));
+  }, []);
+  const dismissUpload = useCallback(
+    (id: number) => setUploads((list) => list.filter((u) => u.id !== id)),
+    [],
+  );
 
   const refresh = useCallback(async () => {
     try {
@@ -41,23 +64,25 @@ export function useDocuments(notify: Notify) {
   const upload = useCallback(
     async (files: File[]) => {
       // Catch wrong types and oversized files instantly, without uploading them.
-      const ok: File[] = [];
+      const ok: { file: File; id: number }[] = [];
       for (const file of files) {
         const problem = uploadProblem(file);
-        if (problem) notify(problem, "error");
-        else ok.push(file);
+        if (problem) track(file.name, "error", problem);
+        else ok.push({ file, id: track(file.name, "processing") });
       }
       if (ok.length === 0) return;
 
       setBusy(true);
       try {
         // One at a time: each file is extracted, chunked and embedded on the server.
-        for (const file of ok) {
+        for (const { file, id } of ok) {
           try {
             const result = await uploadDocument(file);
-            notify(`Added “${result.title}” (${plural(result.chunk_count, "chunk")})`);
+            update(id, { status: "done", name: result.title });
+            notify(`Added “${result.title}”`);
+            await refresh();                   // show it in the list straight away
           } catch (error) {
-            notify(`${file.name}: ${error instanceof Error ? error.message : "upload failed"}`, "error");
+            update(id, { status: "error", message: error instanceof Error ? error.message : "Upload failed" });
           }
         }
       } finally {
@@ -65,7 +90,7 @@ export function useDocuments(notify: Notify) {
         await refresh();
       }
     },
-    [notify, refresh],
+    [notify, refresh, track, update],
   );
 
   const addPage = useCallback(
@@ -73,7 +98,7 @@ export function useDocuments(notify: Notify) {
       setBusy(true);
       try {
         const result = await addUrl(url);
-        notify(`Added “${result.title}” (${plural(result.chunk_count, "chunk")})`);
+        notify(`Added “${result.title}”`);
         await refresh();
         return true;
       } catch (error) {
@@ -101,8 +126,5 @@ export function useDocuments(notify: Notify) {
     [notify, refresh],
   );
 
-  const chunkCount = documents?.reduce((total, d) => total + d.chunk_count, 0) ?? null;
-  const ownCount = documents?.filter((d) => !d.is_demo).length ?? null;
-
-  return { documents, busy, upload, addPage, remove, chunkCount, ownCount };
+  return { documents, busy, upload, addPage, remove, uploads, dismissUpload };
 }

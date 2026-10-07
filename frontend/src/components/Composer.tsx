@@ -2,17 +2,22 @@
 
 import { ArrowUp, Loader2, Paperclip } from "lucide-react";
 import { useRef, useState, type KeyboardEvent } from "react";
+import type { UploadItem } from "@/hooks/useDocuments";
 import { ACCEPTED_FILES } from "@/lib/uploads";
+import { UploadChips } from "./UploadStatus";
 
 type Props = {
   onSubmit: (question: string) => void;
   onAttach: (files: File[]) => void;
   uploading: boolean;
+  uploads: UploadItem[];
+  onDismissUpload: (id: number) => void;
+  onOpenDocuments: () => void;
   disabled?: boolean;
 };
 
 /** The prompt box at the bottom of the chat. Enter sends, Shift+Enter adds a new line. */
-export function Composer({ onSubmit, onAttach, uploading, disabled }: Props) {
+export function Composer({ onSubmit, onAttach, uploading, uploads, onDismissUpload, onOpenDocuments, disabled }: Props) {
   const [text, setText] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -32,6 +37,7 @@ export function Composer({ onSubmit, onAttach, uploading, disabled }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-4xl p-3 sm:p-4 md:px-8 lg:px-12">
+      <UploadChips uploads={uploads} onDismiss={onDismissUpload} onOpen={onOpenDocuments} />
       <div className="relative rounded-2xl border border-slate-200/90 bg-white p-3 shadow-lg shadow-indigo-950/5 transition-all focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100">
         <label htmlFor="prompt-input" className="sr-only">
           Your question

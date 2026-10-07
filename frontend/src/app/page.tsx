@@ -32,7 +32,6 @@ export default function Home() {
         onOpenNav={() => setNavOpen(true)}
         onToggleSources={() => setSourcesOpen((open) => !open)}
         sourcesCount={0}
-        chunkCount={docs.chunkCount}
       />
       <div className="flex flex-1 overflow-hidden pt-14">
         <Sidebar
@@ -52,7 +51,14 @@ export default function Home() {
               <div className="flex flex-1 flex-col overflow-y-auto px-4 py-8 md:px-8 lg:px-12">
                 <EmptyChat onPick={() => {}} />
               </div>
-              <Composer onSubmit={() => {}} onAttach={(files) => void docs.upload(files)} uploading={docs.busy} />
+              <Composer
+                onSubmit={() => {}}
+                onAttach={(files) => void docs.upload(files)}
+                uploading={docs.busy}
+                uploads={docs.uploads}
+                onDismissUpload={docs.dismissUpload}
+                onOpenDocuments={() => setView("documents")}
+              />
             </>
           )}
           {view === "documents" && (
@@ -64,6 +70,8 @@ export default function Home() {
                 onDelete={docs.remove}
                 busy={docs.busy}
                 dragging={dragging}
+                uploads={docs.uploads}
+                onDismissUpload={docs.dismissUpload}
               />
             </div>
           )}

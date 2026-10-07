@@ -1,15 +1,13 @@
 import { BookOpen, FolderClosed, Menu, User } from "lucide-react";
-import { plural } from "@/lib/format";
 import { Logo } from "./Logo";
 
 type Props = {
   onOpenNav: () => void;
   onToggleSources: () => void;
   sourcesCount: number;
-  chunkCount: number | null;
 };
 
-export function Header({ onOpenNav, onToggleSources, sourcesCount, chunkCount }: Props) {
+export function Header({ onOpenNav, onToggleSources, sourcesCount }: Props) {
   return (
     <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-slate-200/80 bg-white/90 px-3 backdrop-blur-md sm:px-5">
       <div className="flex min-w-0 items-center gap-3 sm:gap-6">
@@ -36,12 +34,6 @@ export function Header({ onOpenNav, onToggleSources, sourcesCount, chunkCount }:
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
-        {chunkCount !== null && (
-          <div className="hidden items-center gap-2 rounded-full border border-emerald-200/70 bg-emerald-50/80 px-2.5 py-1 text-[11.5px] font-medium text-emerald-800 sm:flex">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-            <span>{plural(chunkCount, "chunk")} indexed</span>
-          </div>
-        )}
         <button
           type="button"
           onClick={onToggleSources}

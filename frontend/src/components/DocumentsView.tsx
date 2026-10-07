@@ -2,10 +2,11 @@
 
 import { Link2, Loader2, Search, Trash2, UploadCloud } from "lucide-react";
 import { useMemo, useRef, useState, type FormEvent } from "react";
-import { plural } from "@/lib/format";
 import { ACCEPTED_FILES, MAX_UPLOAD_MB } from "@/lib/uploads";
 import type { DocumentInfo } from "@/lib/types";
+import type { UploadItem } from "@/hooks/useDocuments";
 import { FileTypeIcon } from "./FileTypeIcon";
+import { UploadRows } from "./UploadStatus";
 
 type Props = {
   documents: DocumentInfo[] | null;              // null = still loading
@@ -14,9 +15,11 @@ type Props = {
   onDelete: (doc: DocumentInfo) => Promise<void>;
   busy: boolean;                                 // an upload / URL import is running
   dragging: boolean;                             // a file is being dragged over the window
+  uploads: UploadItem[];
+  onDismissUpload: (id: number) => void;
 };
 
-export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, dragging }: Props) {
+export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, dragging, uploads, onDismissUpload }: Props) {
   const [query, setQuery] = useState("");
   const [url, setUrl] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
@@ -115,6 +118,8 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
         />
       </div>
 
+      <UploadRows uploads={uploads} onDismiss={onDismissUpload} />
+
       {documents === null ? (
         <p className="flex items-center gap-2 text-[13px] text-slate-500">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading documents…
@@ -160,7 +165,7 @@ function DocumentList({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-semibold text-slate-900">{doc.title}</p>
                 <p className="truncate text-[11.5px] text-slate-500">
-                  {doc.source_uri ?? doc.source_type.toUpperCase()} · {plural(doc.chunk_count, "chunk")}
+                  {doc.source_uri ?? doc.source_type.toUpperCase()}
                   {doc.published_year ? ` · ${doc.published_year}` : ""}
                 </p>
               </div>

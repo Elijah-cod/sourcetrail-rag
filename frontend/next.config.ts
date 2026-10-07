@@ -14,6 +14,8 @@ const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
 export default function config(phase: string): NextConfig {
   if (phase === PHASE_DEVELOPMENT_SERVER) {
     return {
+      // Hide the floating "N" dev badge (it covered the sidebar footer). Errors still show.
+      devIndicators: false,
       async rewrites() {
         return [{ source: "/api/:path*", destination: `${BACKEND_URL}/api/:path*` }];
       },
