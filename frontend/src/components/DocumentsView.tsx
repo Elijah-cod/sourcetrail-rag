@@ -1,12 +1,11 @@
 "use client";
 
 import { Link2, Loader2, Search, Trash2, UploadCloud } from "lucide-react";
-import { useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { plural } from "@/lib/format";
+import { ACCEPTED_FILES, MAX_UPLOAD_MB } from "@/lib/uploads";
 import type { DocumentInfo } from "@/lib/types";
 import { FileTypeIcon } from "./FileTypeIcon";
-
-export const ACCEPTED_FILES = ".pdf,.docx,.md,.markdown,.txt,.csv";
 
 type Props = {
   documents: DocumentInfo[] | null;              // null = still loading
@@ -14,12 +13,12 @@ type Props = {
   onAddUrl: (url: string) => Promise<boolean>;   // true if it worked (so we can clear the box)
   onDelete: (doc: DocumentInfo) => Promise<void>;
   busy: boolean;                                 // an upload / URL import is running
+  dragging: boolean;                             // a file is being dragged over the window
 };
 
-export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy }: Props) {
+export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, dragging }: Props) {
   const [query, setQuery] = useState("");
   const [url, setUrl] = useState("");
-  const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   // Filter by title or filename as you type. useMemo re-computes only when inputs change.
@@ -31,12 +30,6 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy }:
     return [visible.filter((d) => !d.is_demo), visible.filter((d) => d.is_demo)];
   }, [documents, query]);
 
-  const onDrop = (event: DragEvent) => {
-    event.preventDefault();
-    setDragging(false);
-    if (!busy && event.dataTransfer.files.length) void onUpload(Array.from(event.dataTransfer.files));
-  };
-
   const submitUrl = async (event: FormEvent) => {
     event.preventDefault();
     if (url.trim() && (await onAddUrl(url.trim()))) setUrl("");
@@ -47,8 +40,8 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy }:
       <div>
         <h1 className="font-heading text-xl font-bold text-slate-900">Documents</h1>
         <p className="mt-1 text-[13px] text-slate-600">
-          Add files or web pages to your private workspace. Up to 10 documents, 10 MB each — deleted automatically after
-          24 hours of inactivity.
+          Add files or web pages to your private workspace. Up to 10 documents, {MAX_UPLOAD_MB} MB each — deleted
+          automatically after 24 hours of inactivity.
         </p>
       </div>
 
@@ -57,12 +50,6 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy }:
         <button
           type="button"
           onClick={() => fileInput.current?.click()}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
           disabled={busy}
           className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-6 text-center transition-colors disabled:cursor-wait disabled:opacity-60 ${
             dragging ? "border-indigo-500 bg-indigo-50" : "border-slate-300 bg-white hover:border-indigo-400 hover:bg-indigo-50/40"
@@ -74,7 +61,7 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy }:
             <UploadCloud className="h-6 w-6 text-indigo-600" aria-hidden />
           )}
           <span className="text-[13px] font-semibold text-slate-800">{busy ? "Processing…" : "Upload files"}</span>
-          <span className="text-[11.5px] text-slate-500">PDF, DOCX, Markdown, TXT or CSV — click or drop here</span>
+          <span className="text-[11.5px] text-slate-500">PDF, DOCX, Markdown, TXT or CSV — click, or drop files anywhere</span>
         </button>
         <input
           ref={fileInput}

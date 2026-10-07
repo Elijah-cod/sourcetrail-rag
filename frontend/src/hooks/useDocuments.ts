@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, addUrl, deleteDocument, listDocuments, uploadDocument } from "@/lib/api";
 import { plural } from "@/lib/format";
+import { uploadProblem } from "@/lib/uploads";
 import type { DocumentInfo } from "@/lib/types";
 
 type Notify = (message: string, kind?: "success" | "error") => void;
@@ -39,10 +40,19 @@ export function useDocuments(notify: Notify) {
 
   const upload = useCallback(
     async (files: File[]) => {
+      // Catch wrong types and oversized files instantly, without uploading them.
+      const ok: File[] = [];
+      for (const file of files) {
+        const problem = uploadProblem(file);
+        if (problem) notify(problem, "error");
+        else ok.push(file);
+      }
+      if (ok.length === 0) return;
+
       setBusy(true);
       try {
         // One at a time: each file is extracted, chunked and embedded on the server.
-        for (const file of files) {
+        for (const file of ok) {
           try {
             const result = await uploadDocument(file);
             notify(`Added “${result.title}” (${plural(result.chunk_count, "chunk")})`);

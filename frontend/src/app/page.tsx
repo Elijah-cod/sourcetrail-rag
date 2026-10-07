@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { Composer } from "@/components/Composer";
 import { DocumentsView } from "@/components/DocumentsView";
+import { DropOverlay } from "@/components/DropOverlay";
 import { EmptyChat } from "@/components/EmptyChat";
 import { Header } from "@/components/Header";
 import { Sidebar, type View } from "@/components/Sidebar";
 import { SourcesPanel } from "@/components/SourcesPanel";
 import { Toast, useToast } from "@/components/Toast";
 import { useDocuments } from "@/hooks/useDocuments";
+import { useFileDrop } from "@/hooks/useFileDrop";
 import { useHealth } from "@/hooks/useHealth";
 
 export default function Home() {
@@ -19,6 +21,10 @@ export default function Home() {
   const { toast, show } = useToast();
   const online = useHealth();
   const docs = useDocuments(show);
+  const dragging = useFileDrop((files) => {
+    if (docs.busy) show("Please wait for the current upload to finish.", "error");
+    else void docs.upload(files);
+  });
 
   return (
     <div className="flex h-dvh flex-col">
@@ -57,6 +63,7 @@ export default function Home() {
                 onAddUrl={docs.addPage}
                 onDelete={docs.remove}
                 busy={docs.busy}
+                dragging={dragging}
               />
             </div>
           )}
@@ -68,6 +75,7 @@ export default function Home() {
         </main>
         <SourcesPanel open={sourcesOpen} onClose={() => setSourcesOpen(false)} />
       </div>
+      <DropOverlay visible={dragging} />
       <Toast toast={toast} />
     </div>
   );

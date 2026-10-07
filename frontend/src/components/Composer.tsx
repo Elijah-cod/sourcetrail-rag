@@ -2,7 +2,7 @@
 
 import { ArrowUp, Loader2, Paperclip } from "lucide-react";
 import { useRef, useState, type KeyboardEvent } from "react";
-import { ACCEPTED_FILES } from "./DocumentsView";
+import { ACCEPTED_FILES } from "@/lib/uploads";
 
 type Props = {
   onSubmit: (question: string) => void;
