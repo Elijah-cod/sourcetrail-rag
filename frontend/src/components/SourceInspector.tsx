@@ -41,18 +41,9 @@ export function SourceInspector({ result, selected, flash, claim, onSelect }: Pr
   // Group citations by document, in the order the answer first cites each one.
   const groups = new Map<string, Citation[]>();
   for (const c of result.citations) groups.set(c.document_id, [...(groups.get(c.document_id) ?? []), c]);
-  const passages = result.citations.length;
 
   return (
     <>
-      <p className="px-1 text-[12.5px] leading-relaxed text-slate-600">
-        This answer uses <strong className="text-slate-900">{passages} passage{passages === 1 ? "" : "s"}</strong> from{" "}
-        <strong className="text-slate-900">
-          {groups.size} document{groups.size === 1 ? "" : "s"}
-        </strong>
-        . Click a number in the answer to jump to its passage.
-      </p>
-
       {[...groups.values()].map((cites) => {
         const doc = cites[0];
         const link = safeHttpUrl(doc.source_uri);
@@ -141,17 +132,6 @@ function Passage({ citation: c, result, active, flash, claim, onSelect, register
 
       {active ? (
         <div className="relative px-2.5 pb-2.5">
-          {claim && (
-            <p className="mb-1.5 text-[11px] text-slate-500">
-              {marks.size > 0 ? (
-                <>
-                  <mark className="rounded bg-yellow-200 px-1 text-slate-800">Highlighted</mark>: the part that supports the sentence you clicked.
-                </>
-              ) : (
-                "This passage supports the sentence you clicked as a whole."
-              )}
-            </p>
-          )}
           <div className="space-y-2.5 rounded-md border-l-2 border-indigo-500 bg-white p-3 text-[12.5px] leading-relaxed text-slate-700 shadow-2xs">
             {blocks.map((block, i) => (
               <BlockView key={i} block={block} marks={marks} />
@@ -179,7 +159,21 @@ function Passage({ citation: c, result, active, flash, claim, onSelect, register
 
 /** One readable piece of a passage: a heading, a paragraph, or a spreadsheet record. */
 function BlockView({ block, marks }: { block: Block; marks: Set<string> }) {
-  if (block.kind === "heading") return <p className="font-semibold text-slate-900"><Marked text={block.text} marks={marks} /></p>;
+  if (block.kind === "heading") {
+    // The PDF's own heading levels, scaled down to fit the panel.
+    const size = block.level === 1 ? "text-[15px] font-bold" : block.level === 2 ? "text-[14px] font-bold" : "text-[13px] font-semibold";
+    return <p className={`${size} pt-1 leading-snug text-slate-900 first:pt-0`}><Marked text={block.text} marks={marks} /></p>;
+  }
+  if (block.kind === "list") {
+    const List = block.ordered ? "ol" : "ul";
+    return (
+      <List className={`space-y-1 pl-5 ${block.ordered ? "list-decimal" : "list-disc"} marker:text-slate-400`}>
+        {block.items.map((item, i) => (
+          <li key={i}><Marked text={item} marks={marks} /></li>
+        ))}
+      </List>
+    );
+  }
   if (block.kind === "text") return <p className="whitespace-pre-line break-words"><Marked text={block.text} marks={marks} /></p>;
   return (
     <div className="space-y-1.5 border-b border-slate-100 pb-2.5 last:border-0 last:pb-0">
@@ -224,7 +218,10 @@ function Marked({ text, marks }: { text: string; marks: Set<string> }) {
 
 /** Every sentence a block shows, for choosing which ones to highlight. */
 function blockSentences(block: Block): string[] {
-  const texts = block.kind === "record" ? [block.title ?? "", ...block.body.map((f) => f.value)] : [block.text];
+  const texts =
+    block.kind === "record" ? [block.title ?? "", ...block.body.map((f) => f.value)]
+    : block.kind === "list" ? block.items
+    : [block.text];
   return texts.flatMap(splitSentences);
 }
 

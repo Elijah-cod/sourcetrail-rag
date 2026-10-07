@@ -6,8 +6,9 @@ import type { Citation } from "./types";
 
 export type Field = { label: string; value: string };
 export type Block =
-  | { kind: "heading"; text: string }
+  | { kind: "heading"; level: number; text: string }      // level 1 = biggest
   | { kind: "text"; text: string }
+  | { kind: "list"; ordered: boolean; items: string[] }
   | { kind: "record"; title: string | null; details: Field[]; body: Field[] };
 
 export function formatPassage(c: Pick<Citation, "snippet" | "source_type">): Block[] {
@@ -19,7 +20,14 @@ export function formatPassage(c: Pick<Citation, "snippet" | "source_type">): Blo
 export function previewText(blocks: Block[]): string {
   const titles = blocks.flatMap((b) => (b.kind === "record" && b.title ? [b.title] : []));
   if (titles.length) return titles.join(" · ");
-  return blocks.map((b) => (b.kind === "record" ? b.body.map((f) => f.value).join(" ") : b.text)).join(" ");
+  return blocks.map(blockText).join(" ");
+}
+
+/** All the readable text of a block, as one string. */
+export function blockText(b: Block): string {
+  if (b.kind === "record") return [b.title ?? "", ...b.body.map((f) => f.value)].join(" ");
+  if (b.kind === "list") return b.items.join(" ");
+  return b.text;
 }
 
 // ---------- spreadsheet rows ----------
@@ -64,9 +72,9 @@ function prettyValue(value: string): string {
 
 // ---------- prose ----------
 
-/** PDFs keep the page's line wraps ("closest in meaning\nusing\ncosine"): join them back up,
- *  keeping blank-line paragraph breaks. */
-const unwrapPdf = (text: string) => text.replace(/([^\n])\n(?!\n)/g, "$1 ");
+/** PDFs indexed before structure detection kept the page's line wraps ("closest in meaning\nusing"):
+ *  join those back up. Newer PDFs are stored as Markdown, whose list and heading lines are kept. */
+const unwrapPdf = (text: string) => text.replace(/([^\n])\n(?!\n|#|[-*•] |\d+\. )/g, "$1 ");
 
 /** Drop Markdown symbols people don't need to see: ``` fences, `backticks`, **stars**. */
 const stripMarkdown = (text: string) =>
@@ -76,13 +84,34 @@ const stripMarkdown = (text: string) =>
     .replace(/\*\*([^*\n]+)\*\*/g, "$1")
     .replace(/[ \t]+$/gm, "");
 
+const HEADING = /^(#{1,6})\s+(.+)$/;
+const LIST_ITEM = /^\s*(?:[-*•]|(\d+)\.)\s+(.*)$/;
+
+/** Light Markdown -> blocks: "## Title" headings, "- item" / "1. item" lists, and paragraphs. */
 function paragraphs(text: string): Block[] {
-  return text
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .map((p) => {
-      const heading = p.match(/^#{1,6}\s+(.+)$/);
-      return heading && !p.includes("\n") ? { kind: "heading", text: heading[1] } : { kind: "text", text: p };
-    });
+  const blocks: Block[] = [];
+  for (const chunk of text.split(/\n\s*\n/)) {
+    let lines: string[] = [];
+    const flush = () => {
+      if (lines.length) blocks.push({ kind: "text", text: lines.join("\n") });
+      lines = [];
+    };
+    for (const line of chunk.split("\n").filter((l) => l.trim())) {
+      const heading = line.match(HEADING);
+      const item = line.match(LIST_ITEM);
+      const last = blocks.at(-1);
+      if (heading) {
+        flush();
+        blocks.push({ kind: "heading", level: heading[1].length, text: heading[2].trim() });
+      } else if (item) {
+        flush();
+        if (last?.kind === "list" && last.ordered === Boolean(item[1])) last.items.push(item[2]);
+        else blocks.push({ kind: "list", ordered: Boolean(item[1]), items: [item[2]] });
+      } else {
+        lines.push(line);
+      }
+    }
+    flush();
+  }
+  return blocks;
 }
