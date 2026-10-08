@@ -25,7 +25,7 @@ from app.query import ParsedQuery, parse_query
 from app.rerank import TOP_K, Reranker, rerank
 from app.retrieve import CANDIDATES, FUSED_LIMIT, Mode, retrieve
 from app.search import HIT_COLUMNS, SearchHit
-from app.tables import whole_table_hits
+from app.tables import whole_table_hits, with_summaries
 
 Status = Literal["answered", "not_found", "llm_unavailable"]
 
@@ -123,6 +123,7 @@ def gather_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reran
     # Totals, counts and "list every..." over a small CSV need all of its rows (see app/tables.py).
     table = whole_table_hits(conn, question, workspace_ids) if not exact else []
     if table:
+        table = with_summaries(table)
         rest = [h for h in hits if h.document_id not in {t.document_id for t in table}]
         hits = table + rest[: max(0, top_k - len(table))]
 
