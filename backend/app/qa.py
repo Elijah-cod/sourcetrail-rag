@@ -301,6 +301,17 @@ def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None,
             except LLMUnavailable:
                 pass                       # keep the first answer (its citations still match)
             timings["gap_answer_ms"] = (time.perf_counter() - started) * 1000
+        elif citations and (claims := _claims_to_recheck(text, found.uncovered)):
+            # Nothing new, yet a part answered elsewhere in the sources can be reported missing:
+            # "don't cover its travel time" with "arrives after 47 minutes" in source [2]. The
+            # reranker doesn't connect those either, so the model is asked to read again.
+            try:
+                second, second_citations = generate_answer(llm, question, hits, found.uncovered, claims)
+                if len(missing_parts(second)) < len(missing_parts(text)) and second_citations:
+                    text, citations = second, second_citations
+            except LLMUnavailable:
+                pass
+            timings["recheck_ms"] = (time.perf_counter() - started) * 1000
 
     status: Status = "not_found" if text.strip() == NOT_FOUND or _only_declines(text, citations) else "answered"
     return Answer(status=status, answer=text, citations=citations, sources=hits,
@@ -319,6 +330,13 @@ def missing_parts(answer: str) -> list[str]:
     sentences = re.split(r"(?<=[.!?])\s+|\n+", answer)
     gaps = [re.sub(r"\s+([.,;:!?])", r"\1", re.sub(r"\[\d+\]", "", s)).strip() for s in sentences if _ABSENCE.search(s)]
     return gaps[:MAX_RETRY_QUERIES]
+
+
+def _claims_to_recheck(answer: str, uncovered: list[str]) -> list[str]:
+    """What a partial answer says isn't covered, minus the parts search already found nothing
+    for (those are expected to be reported missing)."""
+    told = {w for part in uncovered for w in content_words(part)}
+    return [gap for gap in missing_parts(answer) if not told & set(content_words(gap))]
 
 
 def _search_for_gaps(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker, answer: str,

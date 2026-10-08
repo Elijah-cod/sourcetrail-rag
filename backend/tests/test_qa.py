@@ -141,3 +141,41 @@ def test_an_answer_that_only_declines_is_not_found(db, fake_embedder, fake_reran
 def test_curly_apostrophe_gap_is_still_searched():
     from app.qa import missing_parts
     assert missing_parts("Travel time: the passages don’t cover it.") == ["Travel time: the passages don’t cover it."]
+
+
+def _tram(db, embedder, workspace_id):
+    index_document(db, embedder, workspace_id, ExtractedDocument(title="Ridge", source_type="docx", sections=[
+        Section(text="The tram Vesper leaves Lower Station at 05:55 and arrives after 47 minutes.",
+                heading="Transit Schedule")]))
+
+
+def test_gap_already_in_a_sent_source_gets_a_second_reading(db, fake_embedder, fake_reranker, workspace_id):
+    """Live run, 8 Oct 2026: 'The passages you were given don't cover its travel time', with
+    'arrives after 47 minutes' in the source the answer cited."""
+    _tram(db, fake_embedder, workspace_id)
+    llm = FakeLLM()
+    replies = iter(["The Vesper leaves at 05:55 [1]. The passages I was given don't cover its travel time.",
+                    "The Vesper leaves at 05:55 and the trip takes 47 minutes [1]."])
+    llm.complete = lambda messages: (llm.calls.append(messages), next(replies))[1]
+    result = ask(db, fake_embedder, fake_reranker, llm, "When does the Vesper tram leave, and how long is "
+                 "the trip?", [workspace_id])
+    assert len(llm.calls) == 2
+    assert "earlier draft of this answer said" in llm.calls[1][1]["content"]
+    assert "47 minutes" in result.answer and result.status == "answered"
+
+
+def test_second_reading_that_still_finds_nothing_keeps_the_first_answer(db, fake_embedder, fake_reranker,
+                                                                         workspace_id):
+    _tram(db, fake_embedder, workspace_id)
+    llm = FakeLLM("The Vesper leaves at 05:55 [1]. The passages I was given don't cover the fare.")
+    result = ask(db, fake_embedder, fake_reranker, llm, "When does the Vesper tram leave, and what is the "
+                 "fare?", [workspace_id])
+    assert len(llm.calls) == 2
+    assert result.answer.startswith("The Vesper leaves at 05:55 [1].")
+
+
+def test_a_pure_decline_is_not_read_again(db, fake_embedder, fake_reranker, workspace_id):
+    _tram(db, fake_embedder, workspace_id)
+    llm = FakeLLM("The passages I was given don't cover the fare.")
+    result = ask(db, fake_embedder, fake_reranker, llm, "What is the Vesper tram fare?", [workspace_id])
+    assert len(llm.calls) == 1 and result.status == "not_found"

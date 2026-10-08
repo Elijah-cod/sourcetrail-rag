@@ -71,17 +71,26 @@ def format_sources(hits: list[SearchHit]) -> str:
     return "\n\n".join(blocks)
 
 
-def build_messages(question: str, hits: list[SearchHit], uncovered: list[str] | None = None) -> list[dict]:
+def build_messages(question: str, hits: list[SearchHit], uncovered: list[str] | None = None,
+                   recheck: list[str] | None = None) -> list[dict]:
     """The chat messages sent to the LLM: rules (system) + sources and question (user).
 
     `uncovered`: parts of the question no passage supported, even after a wider search
     (see qa._add_facet_sources). The model is told, so it doesn't present them as absent
-    from the documents or fill the gap from elsewhere."""
+    from the documents or fill the gap from elsewhere.
+    `recheck`: what an earlier draft said the passages don't cover, when nothing new was found
+    for it; the model is asked to read the sources again before repeating that."""
     user = f"Sources:\n\n{format_sources(hits)}\n\n---\n\nQuestion: {question}"
     if uncovered:
         parts = "; ".join(f'"{part}"' for part in uncovered)
         user += (f"\n\nNote: the search found no passage about {parts}. For that part, say the passages "
                  "you were given don't cover it.")
+    if recheck:
+        claims = "; ".join(f'"{claim}"' for claim in recheck)
+        user += (f"\n\nNote: an earlier draft of this answer said: {claims}. Read every source again "
+                 "before saying that: the information may be there in other words (an arrival \"after 47 "
+                 "minutes\" is a travel time). If a source covers it, answer that part and cite it; if none "
+                 "does, say the passages you were given don't cover it.")
     return [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}]
 
 
@@ -207,10 +216,11 @@ def dedupe_list_items(answer: str) -> str:
 
 
 def generate_answer(llm: LLMClient, question: str, hits: list[SearchHit],
-                    uncovered: list[str] | None = None) -> tuple[str, list[Citation]]:
+                    uncovered: list[str] | None = None, recheck: list[str] | None = None,
+                    ) -> tuple[str, list[Citation]]:
     """Ask the LLM, check its requirement words and citations, tidy repeats.
     Raises LLMUnavailable if the first call fails."""
-    messages = build_messages(question, hits, uncovered)
+    messages = build_messages(question, hits, uncovered, recheck)
     raw = normalize_citations(normalize_typography(llm.complete(messages)))
     sources = [hit.text for hit in hits]
     found = modality.mismatches(raw, sources)
