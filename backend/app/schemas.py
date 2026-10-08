@@ -78,6 +78,7 @@ class QueryResponse(Out):
     sources: list[SourceOut]
     filters: dict[str, int] = {}     # filters read from the question, e.g. {"year": 2024}
     timings: dict[str, float] = {}   # search_ms, rerank_ms, generation_ms
+    unverified: list[str] = []       # figures or codes in the answer that no source contains
 
 
 class ChunkOut(Out):

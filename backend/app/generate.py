@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from uuid import UUID
 
-from app import modality
+from app import modality, verify
 from app.llm import LLMClient, LLMUnavailable
 from app.search import SearchHit
 
@@ -235,4 +235,16 @@ def generate_answer(llm: LLMClient, question: str, hits: list[SearchHit],
         except LLMUnavailable:
             pass                                  # keep the first answer; fixed below
         raw = modality.restore(raw, sources)
+    # Figures and codes must be in the sources they cite (see app/verify.py).
+    raw, unsupported = verify.recite(raw, sources, question)
+    if unsupported:
+        try:
+            rewrite = normalize_citations(normalize_typography(llm.complete(messages + [
+                {"role": "assistant", "content": raw},
+                {"role": "user", "content": verify.correction_note(unsupported)}])))
+            rewrite, still = verify.recite(modality.restore(rewrite, sources), sources, question)
+            if len(still) < len(unsupported) and _CITATION.search(rewrite):
+                raw = rewrite
+        except LLMUnavailable:
+            pass                                  # keep the answer; qa reports what's unverified
     return extract_citations(dedupe_list_items(raw), hits)

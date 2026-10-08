@@ -183,7 +183,7 @@ def test_prompt_forbids_carrying_a_rule_to_another_item():
 def test_non_breaking_hyphens_and_narrow_spaces_become_plain():
     """Benchmark run, 8 Oct 2026: 'AQ‑POLAR‑73' and 'SHOULD NOT' failed every exact check."""
     llm = ScriptedLLM("The identifier is AQ‑POLAR‑73 and it is 30 % [1].")
-    text, _ = generate_answer(llm, "q", HITS)
+    text, _ = generate_answer(llm, "q", [_replace(hit(0), text="AQ-POLAR-73 covers 30 % of runs.")])
     assert text == "The identifier is AQ-POLAR-73 and it is 30 % [1]."
 
 
@@ -196,3 +196,57 @@ def test_requirement_word_with_a_narrow_space_is_still_checked():
 def test_model_typography_becomes_plain():
     from app.generate import normalize_typography
     assert normalize_typography("AQ‑POLAR‑73 at 30 % — don’t") == "AQ-POLAR-73 at 30 % — don't"
+
+
+# ---------- citation check (app/verify.py) ----------
+
+from app import verify  # noqa: E402
+
+GRID = ["TG-203 has 64 units; inspected 2026-10-02.", "The Vesper leaves at 05:55 and arrives after 47 minutes.",
+        "Total units over all rows: 464."]
+
+
+def test_facts_are_codes_and_figures_not_counts():
+    assert verify.facts("TG-203 has 1,064 units across 4 zones [2], the 2nd at 05:55.") == ["tg-203", "1064", "5:55"]
+
+
+def test_figure_in_another_source_gets_that_citation():
+    text, unsupported = verify.recite("The trip takes 47 minutes [1]. TG-203 has 64 units [1].", GRID)
+    assert text == "The trip takes 47 minutes [1][2]. TG-203 has 64 units [1]."
+    assert unsupported == []
+
+
+def test_figure_in_no_source_is_unsupported():
+    text, unsupported = verify.recite("Total units: 512 [3]. TG-203 was inspected on 2026-10-02 [1].", GRID)
+    assert unsupported == ["512"]
+
+
+def test_figures_from_the_question_and_spelling_variants_are_fine():
+    _, unsupported = verify.recite("It leaves at 5:55 [2] for the 2027 season.", GRID, "Is the 2027 season on?")
+    assert unsupported == []
+
+
+def test_unsupported_figure_gets_one_correction():
+    llm = ScriptedLLM("Total units: 512 [3].", "Total units: 464 [3].")
+    hits = [_replace(hit(i), text=t) for i, t in enumerate(GRID)]
+    text, _ = generate_answer(llm, "What is the total?", hits)
+    assert text == "Total units: 464 [1]."
+    assert '"512"' in llm.calls[1][-1]["content"]
+
+
+def test_correction_that_doesnt_help_keeps_the_first_answer():
+    llm = ScriptedLLM("Total units: 512 [3].", "Total units: 513 [3].")
+    hits = [_replace(hit(i), text=t) for i, t in enumerate(GRID)]
+    text, _ = generate_answer(llm, "What is the total?", hits)
+    assert text == "Total units: 512 [1]."
+
+
+def test_calculations_shown_in_the_sentence_are_not_unsupported():
+    sources = ["Fishing fleet: 360 of 1,200 weekly berth-hours. Launches at 06:00 and 18:00. Total 640 m3, "
+               "research 50 %. Units: 48, 35, 64."]
+    for sentence in ["The fleet gets 360 of the 1,200 berth-hours, which is 30 % [1].",
+                     "Launches are at 06:00 and 18:00, 12 hours apart [1].",
+                     "Research flights: 640 m3 × 50 % = 320 m3 [1].",
+                     "Total: 48 + 35 + 64 = 147 [1]."]:
+        assert verify.recite(sentence, sources)[1] == [], sentence
+    assert verify.recite("Total: 48 + 35 + 64 = 157 [1].", sources)[1] == ["157"]

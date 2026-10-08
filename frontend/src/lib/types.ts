@@ -53,6 +53,8 @@ export type QueryResult = {
   sources: Source[];
   filters: { year?: number };
   timings: { search_ms?: number; rerank_ms?: number; generation_ms?: number };
+  /** Figures or codes in the answer that no source contains (worth checking). */
+  unverified?: string[];
 };
 
 export type Chunk = {

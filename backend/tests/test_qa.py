@@ -179,3 +179,12 @@ def test_a_pure_decline_is_not_read_again(db, fake_embedder, fake_reranker, work
     llm = FakeLLM("The passages I was given don't cover the fare.")
     result = ask(db, fake_embedder, fake_reranker, llm, "What is the Vesper tram fare?", [workspace_id])
     assert len(llm.calls) == 1 and result.status == "not_found"
+
+
+def test_figure_in_no_source_is_reported_with_the_answer(db, fake_embedder, fake_reranker, workspace_id):
+    add_report(db, fake_embedder, workspace_id)
+    llm = FakeLLM("Revenue declined by 37% in 2024 because of lower demand [1].")
+    result = ask(db, fake_embedder, fake_reranker, llm, "Why did revenue decline?", [workspace_id])
+    assert len(llm.calls) == 2                       # one correction was asked for
+    assert result.unverified == ["37"]               # FakeLLM repeats itself, so it stays
+    assert "2024" not in result.unverified

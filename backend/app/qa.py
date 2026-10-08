@@ -16,6 +16,7 @@ import psycopg
 
 from app.config import get_settings
 from app.embed import Embedder
+from app import verify
 from app.facets import content_words, split_facets
 from app.generate import NOT_FOUND, Citation, generate_answer
 from app.identifiers import (MAX_FOLLOWED, boundary, exact_matches, find_identifiers, is_document_code,
@@ -38,6 +39,7 @@ class Answer:
     sources: list[SearchHit] = field(default_factory=list)   # everything we retrieved, cited or not
     filters: dict = field(default_factory=dict)              # e.g. {"year": 2024} if one was applied
     timings: dict = field(default_factory=dict)              # milliseconds per stage
+    unverified: list[str] = field(default_factory=list)      # figures/codes found in no source
 
 
 # After reranking, passages scoring far below the best one are noise, not support.
@@ -314,8 +316,9 @@ def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None,
             timings["recheck_ms"] = (time.perf_counter() - started) * 1000
 
     status: Status = "not_found" if text.strip() == NOT_FOUND or _only_declines(text, citations) else "answered"
+    unverified = [] if status == "not_found" else verify.recite(text, [h.text for h in hits], question)[1]
     return Answer(status=status, answer=text, citations=citations, sources=hits,
-                  filters=parsed.filters, timings=timings)
+                  filters=parsed.filters, timings=timings, unverified=unverified)
 
 
 def _only_declines(answer: str, citations: list) -> bool:

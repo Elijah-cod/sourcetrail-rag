@@ -108,6 +108,7 @@ function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, 
           {message.status === "done" && message.result && (
             <div className="space-y-4">
               <AnswerText text={message.result.answer} citations={message.result.citations} onCite={onCite} activeN={activeN} activeClaim={activeClaim} />
+              <Unverified values={message.result.unverified} />
               <Timings result={message.result} />
               <Referenced result={message.result} onCite={onCite} />
             </div>
@@ -115,6 +116,20 @@ function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, 
         </div>
       </div>
     </div>
+  );
+}
+
+/** Figures the backend couldn't find in any source: may be calculated, may be wrong. */
+function Unverified({ values }: { values?: string[] }) {
+  if (!values || values.length === 0) return null;
+  return (
+    <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span>
+        Not found in any source, so check before relying on {values.length === 1 ? "it" : "them"} (it may be
+        calculated): {values.join(", ")}
+      </span>
+    </p>
   );
 }
 
