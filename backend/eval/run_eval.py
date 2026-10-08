@@ -154,11 +154,31 @@ def main() -> None:
             raise SystemExit("The demo collection is empty. Run: uv run python -m app.seed_demo")
         results, top_scores = evaluate(conn, embedder, reranker, questions)
 
-    text = report(results, top_scores, sum(q.answerable for q in questions),
-                  sum(not q.answerable for q in questions))
+    answerable, unanswerable = sum(q.answerable for q in questions), sum(not q.answerable for q in questions)
+    text = report(results, top_scores, answerable, unanswerable)
     print(text)
     (HERE / "results.md").write_text(text)
-    print(f"Saved to {HERE / 'results.md'}")
+    # The same numbers for the app's Benchmarks page (GET /benchmarks).
+    (HERE / "results.json").write_text(json.dumps(
+        as_json(results, top_scores, answerable, unanswerable, get_settings().min_relevance), indent=1) + "\n")
+    print(f"Saved to {HERE / 'results.md'} and results.json")
+
+
+def as_json(results, top_scores: dict, answerable: int, unanswerable: int, threshold: float) -> dict:
+    from datetime import datetime, timezone
+    ans, unans = top_scores["answerable"], top_scores["unanswerable"]
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "answerable": answerable, "unanswerable": unanswerable,
+        "modes": [{"mode": r.mode, "recall_at_1": round(r.recall_at(1), 3), "recall_at_5": round(r.recall_at(5), 3),
+                   "recall_at_10": round(r.recall_at(10), 3), "mrr": round(r.mrr, 3),
+                   "precision_at_5": round(r.precision5, 3), "avg_ms": round(r.avg_ms)} for r in results],
+        "threshold": None if not (ans and unans) else {
+            "value": threshold,
+            "answerable_refused": sum(s < threshold for s in ans), "answerable": len(ans),
+            "unanswerable_refused": sum(s < threshold for s in unans), "unanswerable": len(unans),
+        },
+    }
 
 
 if __name__ == "__main__":

@@ -1,5 +1,7 @@
 """HTTP routes. Each route is thin: validate input, call the pipeline, shape the output."""
 
+import json
+from pathlib import Path
 from uuid import UUID
 
 import psycopg
@@ -111,3 +113,20 @@ def get_chunk(document_id: UUID, chunk_id: str,
     if chunk is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Chunk not found.")
     return chunk
+
+
+# Written by `python -m eval.run_eval` and `python -m eval.regression.run_regression`.
+_EVAL = Path(__file__).resolve().parent.parent / "eval"
+
+
+def _read_results(path: Path) -> dict | None:
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None                     # not run yet (or not shipped with this deployment)
+
+
+@router.get("/benchmarks", summary="Latest retrieval evaluation and regression benchmark results")
+def benchmarks() -> dict:
+    return {"retrieval": _read_results(_EVAL / "results.json"),
+            "regression": _read_results(_EVAL / "regression" / "results.json")}

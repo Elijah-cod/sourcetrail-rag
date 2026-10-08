@@ -184,9 +184,26 @@ def run(with_answers: bool = False) -> str:
 
     report = format_report(ingest_rows, rows, with_answers)
     (HERE / "results.md").write_text(report)
+    # The same results for the app's Benchmarks page (GET /benchmarks).
+    (HERE / "results.json").write_text(json.dumps(as_json(ingest_rows, rows, with_answers),
+                                                  ensure_ascii=False, indent=1) + "\n")
     if answers:        # the full answers, to see *why* a check failed
         (HERE / "answers.jsonl").write_text("".join(json.dumps(a, ensure_ascii=False) + "\n" for a in answers))
     return report
+
+
+def as_json(ingest_rows, rows, with_answers: bool) -> dict:
+    from datetime import datetime, timezone
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "with_answers": with_answers,
+        "ingestion": [{"id": c.id, "fixture": c.fixture, "ok": ok, "detail": d} for c, ok, d in ingest_rows],
+        "questions": [{
+            "id": case.id, "fixture": case.fixture, "question": case.question, "answerable": case.answerable,
+            "facets_covered": got, "facets": len(case.facets), "sources_sent": sent, "latency_ms": round(ms),
+            "uncovered": uncovered, "problems": problems, "unverified": unverified,
+        } for case, got, sent, ms, problems, uncovered, unverified in rows],
+    }
 
 
 def format_report(ingest_rows, rows, with_answers: bool) -> str:

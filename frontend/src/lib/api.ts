@@ -1,5 +1,5 @@
 // Every call to the backend goes through this file.
-import type { Chunk, DocumentInfo, IngestResult, Mode, QueryResult } from "./types";
+import type { Benchmarks, Chunk, DocumentInfo, IngestResult, Mode, QueryResult } from "./types";
 
 /** An error from the API, carrying the human-readable message the backend sent. */
 export class ApiError extends Error {
@@ -77,3 +77,5 @@ export const askQuestion = (question: string, mode: Mode, topK: number) =>
 
 export const getChunk = (documentId: string, chunkId: string) =>
   request<Chunk>(`/documents/${encodeURIComponent(documentId)}/chunks/${encodeURIComponent(chunkId)}`);
+
+export const getBenchmarks = () => request<Benchmarks>("/benchmarks");

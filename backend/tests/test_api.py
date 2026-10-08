@@ -243,3 +243,12 @@ def test_timings_are_reported(client):
 def test_health_on_both_paths(client):
     assert client.get("/health").status_code == 200
     assert client.get("/api/health").status_code == 200
+
+
+def test_benchmarks_returns_whatever_results_exist(client, tmp_path, monkeypatch):
+    from app import api
+    (tmp_path / "regression").mkdir()
+    (tmp_path / "results.json").write_text('{"modes": []}')
+    monkeypatch.setattr(api, "_EVAL", tmp_path)
+    body = client.get("/api/benchmarks").json()
+    assert body == {"retrieval": {"modes": []}, "regression": None}

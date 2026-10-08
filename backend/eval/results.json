@@ -1,0 +1,50 @@
+{
+ "generated_at": "2026-10-08T18:31:57+00:00",
+ "answerable": 39,
+ "unanswerable": 6,
+ "modes": [
+  {
+   "mode": "vector",
+   "recall_at_1": 0.795,
+   "recall_at_5": 0.974,
+   "recall_at_10": 1.0,
+   "mrr": 0.854,
+   "precision_at_5": 0.2,
+   "avg_ms": 12
+  },
+  {
+   "mode": "keyword",
+   "recall_at_1": 0.308,
+   "recall_at_5": 0.718,
+   "recall_at_10": 0.846,
+   "mrr": 0.488,
+   "precision_at_5": 0.144,
+   "avg_ms": 3
+  },
+  {
+   "mode": "hybrid",
+   "recall_at_1": 0.641,
+   "recall_at_5": 0.974,
+   "recall_at_10": 1.0,
+   "mrr": 0.762,
+   "precision_at_5": 0.195,
+   "avg_ms": 14
+  },
+  {
+   "mode": "hybrid_rerank",
+   "recall_at_1": 0.795,
+   "recall_at_5": 0.949,
+   "recall_at_10": 0.974,
+   "mrr": 0.85,
+   "precision_at_5": 0.195,
+   "avg_ms": 1448
+  }
+ ],
+ "threshold": {
+  "value": 0.3,
+  "answerable_refused": 0,
+  "answerable": 39,
+  "unanswerable_refused": 6,
+  "unanswerable": 6
+ }
+}

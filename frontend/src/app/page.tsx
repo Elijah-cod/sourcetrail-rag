@@ -2,6 +2,7 @@
 
 import { CheckCircle2, Download } from "lucide-react";
 import { useState } from "react";
+import { BenchmarksView } from "@/components/BenchmarksView";
 import { ChatMessages } from "@/components/ChatMessages";
 import { Composer } from "@/components/Composer";
 import { DocumentsView } from "@/components/DocumentsView";
@@ -34,8 +35,12 @@ export default function Home() {
   const docs = useDocuments();
   const chat = useChat();
   const recent = useRecentQuestions();
-  // Files dropped while another is indexing simply join the queue.
-  const dragging = useFileDrop((files) => void docs.upload(files));
+  // Files dropped while another is indexing simply join the queue. The chat box and the Documents
+  // page show upload progress; dropped anywhere else, go to Documents so it's visible.
+  const dragging = useFileDrop((files) => {
+    setView((current) => (current === "chat" ? current : "documents"));
+    void docs.upload(files);
+  });
 
   // The answer shown in the sources panel: the inspected one, or else the latest finished one.
   const answers = chat.messages.filter((m) => m.role === "assistant" && m.status === "done");
@@ -159,8 +164,8 @@ export default function Home() {
             </div>
           )}
           {view === "benchmarks" && (
-            <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
-              The benchmarks view is coming in a later commit.
+            <div className="flex-1 overflow-y-auto">
+              <BenchmarksView />
             </div>
           )}
         </main>

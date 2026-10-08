@@ -68,3 +68,35 @@ export type Chunk = {
   section: string | null;
   text: string;
 };
+
+/** GET /benchmarks: the latest results of the two evaluation scripts (null = not run yet). */
+export type RetrievalResults = {
+  generated_at: string;
+  answerable: number;
+  unanswerable: number;
+  modes: { mode: Mode; recall_at_1: number; recall_at_5: number; recall_at_10: number; mrr: number; precision_at_5: number; avg_ms: number }[];
+  threshold: { value: number; answerable_refused: number; answerable: number; unanswerable_refused: number; unanswerable: number } | null;
+};
+
+export type RegressionQuestion = {
+  id: string;
+  fixture: string;
+  question: string;
+  answerable: boolean;
+  facets_covered: number;
+  facets: number;
+  sources_sent: number;
+  latency_ms: number;
+  uncovered: string[];
+  problems: string[] | null;       // null = answers weren't graded in this run
+  unverified: string[] | null;
+};
+
+export type RegressionResults = {
+  generated_at: string;
+  with_answers: boolean;
+  ingestion: { id: string; fixture: string; ok: boolean; detail: string }[];
+  questions: RegressionQuestion[];
+};
+
+export type Benchmarks = { retrieval: RetrievalResults | null; regression: RegressionResults | null };
