@@ -119,3 +119,125 @@ def test_hyphenated_line_breaks_are_rejoined():
     from app.ingest.pdf_layout import _join
     assert _join("planned main-", "tenance") == "planned maintenance"
     assert _join("state-of-the-", "Art") == "state-of-the- Art"      # capital: a real hyphen, keep it
+
+
+# ---------- CSV header validation (SourceTrail test report, 8 Oct 2026) ----------
+# A headerless CSV was accepted: its first data row became the field names, so the index held
+# "RG-X1: RG-X2; North pier: East Lock; 12: 7; Ready: Overdue" and answers cited it confidently.
+
+@pytest.mark.parametrize("data, message", [
+    (b"RG-X1,North pier,12,Ready\nRG-X2,East Lock,7,Overdue\n", "'12' as a column name"),   # the report's file
+    (b"RG-X1,North pier,Ready\nRG-X2,East Lock,Overdue\n", "'RG-X1' as a column name"),     # no numeric column
+    (b"North pier,Ready\nEast Lock,Ready\nSouth quay,Overdue\n", "doesn't seem to have a header"),
+    (b"asset,location\n", "at least one data row"),
+    (b"asset,,status\nRG-X1,North pier,Ready\n", "empty column name"),
+    (b"asset,Asset\nRG-X1,RG-X2\n", "more than once"),
+    (b"2024-01-05,location\nRG-X1,North pier\n", "'2024-01-05' as a column name"),
+    ((b"x" * 150 + b",location\nRG-X1,North pier\n"), "longer than 100"),
+    (b"", "no header row"),
+])
+def test_csv_without_a_real_header_is_rejected(data, message):
+    with pytest.raises(ExtractionError, match=message):
+        extract_file("assets.csv", data)
+
+
+def test_csv_with_header_still_accepted():
+    data = b"asset,location,days,status,note\nRG-X1,North pier,12,Ready,\"oiled, tested\"\nRG-X2,East Lock,7,Overdue,\n"
+    doc = extract_file("assets.csv", data)
+    assert doc.sections[0].text == "asset: RG-X1; location: North pier; days: 12; status: Ready; note: oiled, tested"
+    assert doc.sections[1].text == "asset: RG-X2; location: East Lock; days: 7; status: Overdue"
+
+
+def test_csv_trailing_comma_column_is_ignored_not_rejected():
+    doc = extract_file("assets.csv", b"name,status,\nRamp,Ready,\nGate,Ready,\n")
+    assert [s.text for s in doc.sections] == ["name: Ramp; status: Ready", "name: Gate; status: Ready"]
+
+
+# ---------- TXT sections (SourceTrail test report, 8 Oct 2026) ----------
+# The whole TXT file was one section, so neighbouring conditional rules shared a chunk and the
+# answer to a warning question dropped "extinguish the main lantern" and added a fuel reorder.
+
+STANDING_ORDERS = """HARBOUR LIGHT STANDING ORDERS
+=============================
+
+Keeper on duty: Anaïs Vézin. Relief keeper: Noël Étoile.
+
+Lamp Room
+
+The main lantern is lit at sunset and extinguished at sunrise.
+The lens is polished every morning.
+
+If the fog bell sounds for more than ten minutes, extinguish the main lantern and switch to the auxiliary beam.
+
+When the fuel tank falls below one quarter, reorder fuel from Côte Rêverie depot.
+
+General warnings:
+
+- Never leave the lamp room unattended.
+- Report broken glass immediately.
+
+2. Succession
+
+If the keeper is absent, the relief keeper takes command.
+""".encode("latin-1")
+
+
+def test_txt_splits_at_headings_and_isolates_conditional_rules():
+    sections = extract_file("standing_orders.txt", STANDING_ORDERS).sections
+    by_text = {s.text: s.heading for s in sections}
+    fog = ("If the fog bell sounds for more than ten minutes, extinguish the main lantern "
+           "and switch to the auxiliary beam.")
+    fuel = "When the fuel tank falls below one quarter, reorder fuel from Côte Rêverie depot."
+    assert by_text[fog] == "Lamp Room"                  # the rule and its actions, alone together
+    assert by_text[fuel] == "Lamp Room"
+    assert by_text["Keeper on duty: Anaïs Vézin. Relief keeper: Noël Étoile."] == "HARBOUR LIGHT STANDING ORDERS"
+    # A "...:" intro stays with the list it introduces.
+    assert by_text["General warnings:\n- Never leave the lamp room unattended.\n- Report broken glass immediately."] == "Lamp Room"
+    assert by_text["If the keeper is absent, the relief keeper takes command."] == "2. Succession"
+
+
+def test_txt_rules_never_share_a_chunk():
+    from app.chunking import chunk_document
+    chunks = chunk_document(extract_file("standing_orders.txt", STANDING_ORDERS), "orders")
+    assert not any("fog bell" in c.text and "fuel tank" in c.text for c in chunks)
+
+
+def test_txt_plain_paragraphs_are_grouped_not_one_chunk_each():
+    text = "\n\n".join(f"Note {i}: the boat shed holds oars and spare rope." for i in range(4))
+    assert len(extract_file("notes.txt", text.encode()).sections) == 1
+
+
+# ---------- DOCX tables, headers and footers (SourceTrail test report, 8 Oct 2026) ----------
+
+def make_docx_with_table_header_footer() -> bytes:
+    document = docx.Document()
+    document.add_heading("Stores", level=1)
+    document.add_paragraph("Inventory is checked weekly.")
+    table = document.add_table(rows=3, cols=3)
+    for r, values in enumerate([["Item", "Qty", "Station"], ["Lamp oil", "4", "North pier"],
+                                ["Wick", "12", "East Lock"]]):
+        for c, value in enumerate(values):
+            table.cell(r, c).text = value
+    document.add_paragraph("Shortfalls go to the harbour master.")
+    document.sections[0].header.paragraphs[0].text = "Harbour Board internal: code word HERON"
+    document.sections[0].footer.paragraphs[0].text = "Issued by the Lighthouse Directorate"
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def test_docx_tables_are_extracted_row_by_row_in_place():
+    sections = extract_file("stores.docx", make_docx_with_table_header_footer()).sections
+    assert [s.heading for s in sections[:3]] == ["Stores", "Stores", "Stores"]
+    assert sections[0].text == "Inventory is checked weekly."
+    assert sections[1].text == ("Table 1 columns: Item | Qty | Station\n"
+                                "Table 1, row 1: Item: Lamp oil; Qty: 4; Station: North pier\n"
+                                "Table 1, row 2: Item: Wick; Qty: 12; Station: East Lock")
+    assert sections[2].text == "Shortfalls go to the harbour master."
+
+
+def test_docx_headers_and_footers_are_labelled_sections():
+    sections = extract_file("stores.docx", make_docx_with_table_header_footer()).sections
+    labelled = {s.heading: s.text for s in sections if s.heading in ("Page header", "Page footer")}
+    assert labelled == {"Page header": "Harbour Board internal: code word HERON",
+                        "Page footer": "Issued by the Lighthouse Directorate"}

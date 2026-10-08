@@ -6,6 +6,7 @@ import re
 from pathlib import PurePath
 
 import docx
+import docx.table
 from app.ingest.pdf_layout import read_pdf
 
 from app.ingest.models import ExtractedDocument, ExtractionError, Section, clean_text, guess_year
@@ -81,7 +82,61 @@ def extract_pdf(filename: str, data: bytes) -> ExtractedDocument:
     return ExtractedDocument(title=title, source_type="pdf", sections=sections)
 
 
+def _cell_texts(row) -> list[str]:
+    """Cell texts of a table row. Merged cells come back once per grid column, so drop repeats."""
+    texts: list[str] = []
+    previous = None
+    for cell in row.cells:
+        if previous is not None and cell._tc is previous:
+            continue
+        previous = cell._tc
+        texts.append(re.sub(r"\s+", " ", cell.text).strip())
+    return texts
+
+
+def _docx_table(table, number: int) -> str:
+    """A Word table as text, one line per row: 'Table 2, row 1: Item: Lamp oil; Qty: 4'.
+    With a header row, each value is labelled with its column like a CSV row; without one, cells
+    are joined with ' | '."""
+    rows = [_cell_texts(row) for row in table.rows]
+    rows = [r for r in rows if any(r)]
+    if not rows:
+        return ""
+    header = rows[0]
+    has_header = (len(rows) > 1 and all(header) and len(set(header)) == len(header)
+                  and not any(_NUMBERISH.match(h) for h in header))
+    lines = []
+    if has_header:
+        lines.append(f"Table {number} columns: " + " | ".join(header))
+        for index, row in enumerate(rows[1:], start=1):
+            parts = [f"{name}: {value}" for name, value in zip(header, row) if value]
+            parts += [value for value in row[len(header):] if value]
+            lines.append(f"Table {number}, row {index}: " + "; ".join(parts))
+    else:
+        for index, row in enumerate(rows, start=1):
+            lines.append(f"Table {number}, row {index}: " + " | ".join(value for value in row if value))
+    return "\n".join(lines)
+
+
+def _docx_header_footer_text(document) -> tuple[list[str], list[str]]:
+    """Unique page header and footer texts across the document's sections."""
+    headers: list[str] = []
+    footers: list[str] = []
+    for section in document.sections:
+        for part, found in ((section.header, headers), (section.footer, footers)):
+            if part.is_linked_to_previous:
+                continue
+            texts = [p.text.strip() for p in part.paragraphs if p.text.strip()]
+            texts += [_docx_table(t, n) for n, t in enumerate(part.tables, start=1)]
+            text = "\n".join(t for t in texts if t)
+            if text and text not in found:
+                found.append(text)
+    return headers, footers
+
+
 def extract_docx(filename: str, data: bytes) -> ExtractedDocument:
+    """Body paragraphs and tables in document order, split at Heading/Title styles; then page
+    headers and footers as their own labelled sections."""
     try:
         document = docx.Document(io.BytesIO(data))
     except Exception as exc:
@@ -90,22 +145,34 @@ def extract_docx(filename: str, data: bytes) -> ExtractedDocument:
     sections: list[Section] = []
     heading: str | None = None
     buffer: list[str] = []
+    tables = 0
 
     def flush() -> None:
         if buffer:
             sections.append(Section(text=clean_text("\n\n".join(buffer)), heading=heading))
             buffer.clear()
 
-    for paragraph in document.paragraphs:
-        text = paragraph.text.strip()
+    for block in document.iter_inner_content():
+        if isinstance(block, docx.table.Table):
+            tables += 1
+            flush()                # a table is its own section, so rows aren't cut mid-paragraph
+            text = _docx_table(block, tables)
+            if text:
+                sections.append(Section(text=clean_text(text), heading=heading))
+            continue
+        text = block.text.strip()
         if not text:
             continue
-        if paragraph.style is not None and paragraph.style.name.lower().startswith(("heading", "title")):
+        if block.style is not None and block.style.name.lower().startswith(("heading", "title")):
             flush()                # a new heading closes the previous section
             heading = text
         else:
             buffer.append(text)
     flush()
+
+    headers, footers = _docx_header_footer_text(document)
+    sections += [Section(text=clean_text(t), heading="Page header") for t in headers]
+    sections += [Section(text=clean_text(t), heading="Page footer") for t in footers]
 
     title = (document.core_properties.title or "").strip() or _stem(filename)
     return ExtractedDocument(title=title, source_type="docx", sections=sections)
@@ -151,27 +218,168 @@ def extract_markdown(filename: str, data: bytes) -> ExtractedDocument:
     return ExtractedDocument(title=title or _stem(filename), source_type="md", sections=sections)
 
 
+# Plain-text sectioning. A TXT file used to be one big section, so the chunker packed several
+# unrelated rules ("if the beam fails..." / "if fuel runs low...") into one passage and the LLM
+# blended them. Now: headings start sections, and a paragraph with a condition in it stands alone.
+TXT_GROUP_CHARS = 600     # plain paragraphs under one heading are grouped up to this size
+_TXT_UNDERLINE = re.compile(r"^\s*(=+|-+)\s*$")
+_TXT_NUMBERED_HEADING = re.compile(r"^(\d+(\.\d+)*\.?|[IVX]+\.|section \d+|part \d+|chapter \d+)\s+\S", re.IGNORECASE)
+_CONDITIONAL = re.compile(r"\b(if|when|whenever|unless|until|in case|in the event|otherwise|only after)\b", re.IGNORECASE)
+
+
+def _txt_heading(line: str) -> str | None:
+    """The heading text if this line, standing alone, reads like a heading."""
+    text = line.strip().lstrip("#").strip()
+    if not text or len(text) > 80 or len(text.split()) > 10:
+        return None
+    if text.endswith((".", ",", ";", "!", "?")) or not (text[0].isupper() or text[0].isdigit()):
+        return None
+    letters = [c for c in text if c.isalpha()]
+    if letters and all(c.isupper() for c in letters) and len(letters) >= 3:
+        return text.rstrip(":").strip()                   # "WARNINGS" / "SAFETY RULES:"
+    if line.lstrip().startswith("#") or _TXT_NUMBERED_HEADING.match(text):
+        return text.rstrip(":").strip()                   # "# Lamps" / "2. Fuel" / "Section 4 Storms"
+    if text.endswith(":"):
+        return None                                       # "Do the following:" introduces a list
+    words = text.split()
+    # "Lantern Care" / "Night watch duties": short, title-ish, no verb-y sentence punctuation.
+    return text if len(words) <= 6 and sum(w[0].isupper() for w in words) * 2 >= len(words) else None
+
+
+def split_txt(text: str) -> list[Section]:
+    """Split plain text into sections at heading-like lines and around conditional paragraphs."""
+    paragraphs = [p.strip("\n") for p in re.split(r"\n\s*\n", text) if p.strip()]
+    sections: list[Section] = []
+    heading: str | None = None
+    group: list[str] = []
+
+    def flush() -> None:
+        if group:
+            sections.append(Section(text=clean_text("\n\n".join(group)), heading=heading))
+            group.clear()
+
+    pending_intro: str | None = None      # "If the lamp fails:" belongs with the list after it
+    for index, paragraph in enumerate(paragraphs):
+        lines = paragraph.splitlines()
+        is_last = index == len(paragraphs) - 1
+        # A heading underlined with === or ---, or a lone heading-like line.
+        if len(lines) >= 2 and _TXT_UNDERLINE.match(lines[1]) and _txt_heading(lines[0]) is not None:
+            title, lines = lines[0].strip(), lines[2:]
+        elif _txt_heading(lines[0]) is not None and (len(lines) > 1 and lines[0].strip().isupper()
+                                                     or len(lines) == 1 and not is_last):
+            title, lines = _txt_heading(lines[0]), lines[1:]
+        else:
+            title = None
+        if title is not None:
+            flush()
+            if pending_intro:
+                sections.append(Section(text=clean_text(pending_intro), heading=heading))
+                pending_intro = None
+            heading = title
+        body = "\n".join(lines).strip()
+        if not body:
+            continue
+        if pending_intro:
+            body, pending_intro = f"{pending_intro}\n{body}", None
+        if body.rstrip().endswith(":") and len(body) < 300:
+            pending_intro = body                              # keep it with what follows
+            continue
+        if _CONDITIONAL.search(body):
+            flush()                                           # a rule is its own passage
+            sections.append(Section(text=clean_text(body), heading=heading))
+            continue
+        if group and sum(len(g) for g in group) + len(body) > TXT_GROUP_CHARS:
+            flush()
+        group.append(body)
+    if pending_intro:
+        group.append(pending_intro)
+    flush()
+    return sections
+
+
 def extract_txt(filename: str, data: bytes) -> ExtractedDocument:
-    return ExtractedDocument(
-        title=_stem(filename), source_type="txt", sections=[Section(text=clean_text(_decode(data)))]
-    )
+    return ExtractedDocument(title=_stem(filename), source_type="txt", sections=split_txt(_decode(data)))
 
 
 _TITLE_COLUMN = re.compile(r"^(title|name|subject|heading|topic)$", re.IGNORECASE)
+MAX_HEADER_CHARS = 100
+# Values that are data, never column names: numbers, money, percentages, dates.
+_NUMBERISH = re.compile(r"^[-+(]?[$€£¥]?\s*\d[\d,. ]*%?\)?$")
+_DATEISH = re.compile(r"^\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}$")
+
+
+def _shape(value: str) -> str:
+    """'RG-X1' -> 'A-A9': letters/digits collapsed to their class, so 'RG-X1' and 'RG-X2' match."""
+    return re.sub(r"[A-Z]+", "A", re.sub(r"[a-z]+", "a", re.sub(r"\d+", "9", value)))
+
+
+def _looks_like_code(header: str, column_values: list[str]) -> bool:
+    """A code like 'RG-X1' over a column of 'RG-X2', 'RG-X3': same shape and it contains a digit.
+    Column names almost never look like that, so this alone means the first row is data."""
+    values = [v for v in column_values if v]
+    return bool(values) and any(c.isdigit() for c in header) and _shape(header) == _shape(values[0])
+
+
+def _repeats_a_value(header: str, column_values: list[str]) -> bool:
+    """Header 'Ready' over a status column of Ready/Overdue. Weak alone ('Name' could be a name)."""
+    return any(v.lower() == header.lower() for v in column_values if v)
+
+
+def validate_csv_header(filename: str, header: list[str], rows: list[list[str]]) -> None:
+    """Refuse a CSV whose first row isn't a real header. Otherwise its first data row silently
+    becomes the field names and every answer cites nonsense like 'North pier: East Lock'."""
+    if not rows:
+        raise ExtractionError(f"'{filename}' needs a header row and at least one data row.")
+    names = [h.strip() for h in header]
+    if any(not name for name in names):
+        raise ExtractionError(f"'{filename}' has an empty column name in its header row "
+                              f"(column {names.index('') + 1}). Every column needs a name.")
+    seen: set[str] = set()
+    for name in names:
+        if name.lower() in seen:
+            raise ExtractionError(f"'{filename}' has the column name '{name}' more than once.")
+        seen.add(name.lower())
+    for name in names:
+        if len(name) > MAX_HEADER_CHARS:
+            raise ExtractionError(f"'{filename}' has a column name longer than {MAX_HEADER_CHARS} "
+                                  "characters, so its first row is probably data, not a header.")
+        if _NUMBERISH.match(name) or _DATEISH.match(name):
+            raise ExtractionError(f"'{filename}' has '{name}' as a column name. The first row looks "
+                                  "like data: add a header row with a name for each column.")
+    columns = [[row[i].strip() if i < len(row) else "" for row in rows] for i in range(len(names))]
+    for name, values in zip(names, columns):
+        if _looks_like_code(name, values):
+            raise ExtractionError(f"'{filename}' has '{name}' as a column name, but it looks like the "
+                                  "values below it. Add a header row with a name for each column.")
+    repeated = [name for name, values in zip(names, columns) if _repeats_a_value(name, values)]
+    if len(repeated) * 2 >= len(names):
+        raise ExtractionError(f"'{filename}' doesn't seem to have a header row: these header cells also appear "
+                              f"as values in their columns: {', '.join(repr(n) for n in repeated)}. "
+                              "Add a header row with a name for each column.")
 
 
 def extract_csv(filename: str, data: bytes) -> ExtractedDocument:
     """Each row becomes its own section, written as 'column: value; column: value'."""
-    reader = csv.DictReader(io.StringIO(_decode(data)))
-    if not reader.fieldnames:
+    try:
+        records = list(csv.reader(io.StringIO(_decode(data))))
+    except csv.Error as exc:
+        raise ExtractionError(f"Could not read CSV '{filename}': {exc}") from exc
+    records = [r for r in records if any(cell.strip() for cell in r)]       # skip blank lines
+    if not records:
         raise ExtractionError(f"'{filename}' has no header row.")
+    header, rows = records[0], records[1:]
+    # A trailing comma on every line makes an unnamed, empty last column: drop it, don't reject.
+    while header and not header[-1].strip() and not any(len(r) >= len(header) and r[len(header) - 1].strip() for r in rows):
+        header = header[:-1]
+    validate_csv_header(filename, header, rows)
 
+    names = [h.strip() for h in header]
     sections = []
-    for number, row in enumerate(reader, start=1):
-        parts = [f"{column}: {value.strip()}" for column, value in row.items()
-                 if column and value and value.strip()]
+    for number, row in enumerate(rows, start=1):
+        cells = list(zip(names, (cell.strip() for cell in row)))
+        parts = [f"{column}: {value}" for column, value in cells if value]
         if parts:
             # A "title"/"name" column labels the row, e.g. citations read "Row 19: Support Policy".
-            label = next((v.strip() for c, v in row.items() if c and v and _TITLE_COLUMN.match(c.strip())), None)
+            label = next((v for c, v in cells if v and _TITLE_COLUMN.match(c)), None)
             sections.append(Section(text="; ".join(parts), row=number, heading=label))
     return ExtractedDocument(title=_stem(filename), source_type="csv", sections=sections)
