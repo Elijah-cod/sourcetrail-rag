@@ -26,6 +26,15 @@ those it its is are was were be been being am do does did done has have had havi
 would will shall may might must not no yes any all each every some what which who whom whose why how
 where there here i me my we our you your he she they them their his her one ones please tell give
 show list describe explain say says said what's whats there's get gets got also both either neither
+many much
+""".split())
+
+# What kind of answer is wanted, not what it's about: "What exact ordered actions are required?"
+# has no topic to search for, and reporting it as "not covered" made answers decline parts they
+# had answered. (Topics keep these words when they have another: "required access token".)
+_FILLER |= set("""
+action actions step steps sequence ordered exact exactly required require requires requirement
+compare comparison detail details information complete full entire
 """.split())
 
 # Where one part ends and the next begins.

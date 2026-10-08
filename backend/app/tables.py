@@ -20,7 +20,8 @@ WINDOW = 4                     # the column must come within this many words of 
 
 _AGGREGATE = re.compile(
     r"\b(total|sum|average|mean|median|how many|count|number of|all|every|each|overall|across|"
-    r"highest|lowest|most|least|largest|smallest|rank|ranking|list)\b", re.IGNORECASE)
+    r"highest|lowest|most|least|fewest|largest|smallest|maximum|minimum|earliest|latest|oldest|newest|"
+    r"rank|ranking|list)\b", re.IGNORECASE)
 
 
 def wants_whole_table(question: str) -> bool:

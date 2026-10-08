@@ -83,8 +83,9 @@ def build_messages(question: str, hits: list[SearchHit], uncovered: list[str] | 
     user = f"Sources:\n\n{format_sources(hits)}\n\n---\n\nQuestion: {question}"
     if uncovered:
         parts = "; ".join(f'"{part}"' for part in uncovered)
-        user += (f"\n\nNote: the search found no passage about {parts}. For that part, say the passages "
-                 "you were given don't cover it.")
+        user += (f"\n\nNote: the search found no passage specifically about {parts}. Answer it if a source "
+                 "covers it anyway (perhaps in other words); otherwise say the passages you were given don't "
+                 "cover it.")
     if recheck:
         claims = "; ".join(f'"{claim}"' for claim in recheck)
         user += (f"\n\nNote: an earlier draft of this answer said: {claims}. Read every source again "

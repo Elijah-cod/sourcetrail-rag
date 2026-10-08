@@ -157,7 +157,7 @@ def test_restore_leaves_correct_sentences_alone():
 
 def test_uncovered_parts_are_named_in_the_prompt():
     content = build_messages("q", HITS, uncovered=["the barge is in the chamber"])[1]["content"]
-    assert 'no passage about "the barge is in the chamber"' in content
+    assert 'no passage specifically about "the barge is in the chamber"' in content
 
 
 def test_duplicate_list_items_are_dropped_before_rendering():

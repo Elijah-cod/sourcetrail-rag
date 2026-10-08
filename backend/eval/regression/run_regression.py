@@ -10,8 +10,11 @@ removed afterwards. Per question (see cases.jsonl) it measures:
 - facet coverage: every part of the question ("facets") must have a passage containing one of
   its phrases among the sources handed to the LLM. Compound questions fail here first;
 - refusal: unanswerable questions must not reach the LLM (or, with --answers, must be refused);
+- uncovered parts: a part of an answerable question reported as having no passage (the answer
+  would then say the passages "don't cover" it);
 - with --answers: expected facts present, forbidden claims absent, exact modal words (MUST,
-  SHOULD NOT...) quoted, and no list item rendered twice.
+  SHOULD NOT...) quoted, and no list item rendered twice; plus how many answers contain a figure
+  or code found in no source (the citation check's `unverified`, see app/verify.py).
 
 Retrieval recall and answer correctness are reported separately, so a miss can be blamed on
 the right stage. Results are written to eval/regression/results.md, and with --answers the
@@ -167,14 +170,15 @@ def run(with_answers: bool = False) -> str:
                 sent = [] if found.final is not None else found.hits
                 texts = [norm(f"{h.section or ''}\n{h.text}") for h in sent if h.source_uri == case.fixture]
                 got = sum(covered(f, texts) for f in case.facets)
-                answer_problems = None
+                answer_problems, unverified = None, None
                 if llm is not None:
                     answer = ask(conn, embedder, reranker, llm, case.question, searched)
-                    answer_problems = grade_answer(case, answer)
+                    answer_problems, unverified = grade_answer(case, answer), answer.unverified
                     answers.append({"id": case.id, "question": case.question, "status": answer.status,
                                     "answer": answer.answer, "problems": answer_problems,
+                                    "unverified": answer.unverified,
                                     "sources": [f"{h.source_uri} | {h.section}" for h in answer.sources]})
-                rows.append((case, got, len(sent), ms, answer_problems))
+                rows.append((case, got, len(sent), ms, answer_problems, found.uncovered, unverified))
         finally:
             conn.execute("DELETE FROM workspaces WHERE id = %s", (workspace,))
 
@@ -203,6 +207,8 @@ def format_report(ingest_rows, rows, with_answers: bool) -> str:
         f"| Questions with every facet covered | {complete}/{len(answerable)} |",
         f"| Compound questions fully covered | {sum(r[1] == len(r[0].facets) for r in compound)}/{len(compound)} |",
         f"| Unanswerable questions stopped before the LLM (the rest must be refused by it) | {refused}/{len(unanswerable)} |",
+        f"| Answerable questions with a part reported as uncovered | {sum(bool(r[5]) for r in answerable)}"
+        f"/{len(answerable)} |",
         f"| Median retrieval latency | {sorted(r[3] for r in rows)[len(rows) // 2]:.0f} ms |",
     ]
     if with_answers:
@@ -210,12 +216,18 @@ def format_report(ingest_rows, rows, with_answers: bool) -> str:
         passed = sum(not r[4] for r in graded)
         lines.append(f"| Answers passing every check | {passed}/{len(graded)} graded"
                      f"{f' ({len(rows) - len(graded)} not graded: LLM unavailable)' if len(graded) < len(rows) else ''} |")
+        lines.append(f"| Answers with a figure or code found in no source | {sum(bool(r[6]) for r in graded)}"
+                     f"/{len(graded)} |")
     lines += ["", "## Ingestion", "", "| Case | Result | Detail |", "|---|---|---|"]
     lines += [f"| {c.id} | {'pass' if ok else 'FAIL'} | {d} |" for c, ok, d in ingest_rows]
     lines += ["", "## Questions", "", "| Case | Facets covered | Sources sent | Latency | Answer |", "|---|---|---|---|---|"]
-    for case, got, sent, ms, problems in rows:
-        cover = f"{got}/{len(case.facets)}" if case.answerable else ("refused" if sent == 0 else f"FAIL: {sent} sent")
+    for case, got, sent, ms, problems, uncovered, unverified in rows:
+        cover = f"{got}/{len(case.facets)}" if case.answerable else ("refused" if sent == 0 else f"reached the LLM ({sent} sent)")
+        if case.answerable and uncovered:
+            cover += f" (uncovered: {'; '.join(uncovered)})"
         verdict = "-" if problems is None else ("pass" if not problems else "; ".join(problems))
+        if unverified:
+            verdict += f" (not in any source: {', '.join(unverified)})"
         lines.append(f"| {case.id} | {cover} | {sent} | {ms:.0f} ms | {verdict} |")
     return "\n".join(lines) + "\n"
 

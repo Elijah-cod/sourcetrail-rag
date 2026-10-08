@@ -89,3 +89,18 @@ def test_instructions_about_the_answer_are_not_searched_as_parts():
     assert not any("accented" in p for p in parts)
     assert not any("arithmetic" in p for p in split_facets(
         "Calculate the total units and the units by zone. Show the arithmetic totals."))
+
+
+def test_parts_that_only_say_what_kind_of_answer_are_not_searched():
+    """'What exact ordered actions are required' has no topic; reported as uncovered, it made the
+    answer decline a part it had answered."""
+    assert split_facets("Lightning is detected during an Amber warning while the hangar door is open. "
+                        "What exact ordered actions are required?") == [
+        "Lightning is detected during an Amber warning", "the hangar door is open"]
+    assert "how many units is that" not in split_facets("Which zone has the most units, and how many units is that?")
+
+
+def test_earliest_and_fewest_ask_for_the_whole_table():
+    from app.tables import _aggregated_words
+    assert {"inspection", "unit"} <= _aggregated_words("Which asset has the earliest inspection date, and which "
+                                                       "category has the fewest units?")

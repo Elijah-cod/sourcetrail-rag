@@ -126,6 +126,8 @@ def gather_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reran
     table = whole_table_hits(conn, question, workspace_ids) if not exact else []
     if table:
         table = with_summaries(table)
+        # "which has the most units" is answered by the table, whatever its facet search found.
+        uncovered = [part for part in uncovered if not any(_shares_words(part, h) for h in table)]
         rest = [h for h in hits if h.document_id not in {t.document_id for t in table}]
         hits = table + rest[: max(0, top_k - len(table))]
 
@@ -158,6 +160,9 @@ def _add_facet_sources(conn: psycopg.Connection, embedder: Embedder, reranker: R
     sent = {(h.document_id, h.chunk_id) for h in hits}
     asked_docs = {h.document_id for h in hits}
     for number, facet in enumerate(facets, start=1):
+        named = [i for i in idents if boundary(i).search(facet)]
+        if named and any(_mentions(h, i) for h in hits for i in named):
+            continue                     # "For asset TG-210": its exact match is already a source
         best: list[SearchHit] = []
         # A small pool first (reranking is the slow part); the wide one only if that finds nothing.
         for pool in (FACET_POOL, FUSED_LIMIT * 2):
