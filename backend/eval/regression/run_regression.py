@@ -14,7 +14,8 @@ removed afterwards. Per question (see cases.jsonl) it measures:
   SHOULD NOT...) quoted, and no list item rendered twice.
 
 Retrieval recall and answer correctness are reported separately, so a miss can be blamed on
-the right stage. Results are written to eval/regression/results.md.
+the right stage. Results are written to eval/regression/results.md, and with --answers the
+full answers to eval/regression/answers.jsonl.
 """
 
 import json
@@ -101,6 +102,8 @@ def modal_words(text: str) -> list[str]:
 def grade_answer(case: Case, answer) -> list[str]:
     """Problems with an LLM answer ([] = pass)."""
     text = answer.answer
+    if answer.status == "llm_unavailable":
+        return ["LLM unavailable (quota or network), not graded"]
     if not case.answerable:
         return [] if answer.status == "not_found" else [f"answered an unanswerable question: {text[:80]!r}"]
     problems = [f"missing fact {f!r}" for f in case.facts if norm(f) not in norm(text)]
@@ -115,15 +118,33 @@ def grade_answer(case: Case, answer) -> list[str]:
     return problems
 
 
+class PatientLLM:
+    """Waits out the free tier's per-minute limit instead of failing the rest of the run."""
+
+    def __init__(self, inner, waits=(20, 40, 60)):
+        self.inner, self.waits = inner, waits
+
+    def complete(self, messages):
+        from app.llm import LLMUnavailable
+        for wait in (*self.waits, None):
+            try:
+                return self.inner.complete(messages)
+            except LLMUnavailable as exc:
+                if wait is None or "quota" not in str(exc):
+                    raise
+                print(f"  rate limited, waiting {wait}s", file=sys.stderr)
+                time.sleep(wait)
+
+
 def run(with_answers: bool = False) -> str:
     cases = load_cases()
     embedder, reranker = get_embedder(), get_reranker()
     llm = None
     if with_answers:
         from app.llm import get_llm
-        llm = get_llm()
+        llm = PatientLLM(get_llm())
 
-    rows, ingest_rows = [], []
+    rows, ingest_rows, answers = [], [], []
     with psycopg.connect(get_settings().database_url, autocommit=True) as conn:
         for case in (c for c in cases if c.kind == "ingest"):
             ok, detail = check_ingest(case)
@@ -148,13 +169,19 @@ def run(with_answers: bool = False) -> str:
                 got = sum(covered(f, texts) for f in case.facets)
                 answer_problems = None
                 if llm is not None:
-                    answer_problems = grade_answer(case, ask(conn, embedder, reranker, llm, case.question, searched))
+                    answer = ask(conn, embedder, reranker, llm, case.question, searched)
+                    answer_problems = grade_answer(case, answer)
+                    answers.append({"id": case.id, "question": case.question, "status": answer.status,
+                                    "answer": answer.answer, "problems": answer_problems,
+                                    "sources": [f"{h.source_uri} | {h.section}" for h in answer.sources]})
                 rows.append((case, got, len(sent), ms, answer_problems))
         finally:
             conn.execute("DELETE FROM workspaces WHERE id = %s", (workspace,))
 
     report = format_report(ingest_rows, rows, with_answers)
     (HERE / "results.md").write_text(report)
+    if answers:        # the full answers, to see *why* a check failed
+        (HERE / "answers.jsonl").write_text("".join(json.dumps(a, ensure_ascii=False) + "\n" for a in answers))
     return report
 
 
@@ -179,8 +206,10 @@ def format_report(ingest_rows, rows, with_answers: bool) -> str:
         f"| Median retrieval latency | {sorted(r[3] for r in rows)[len(rows) // 2]:.0f} ms |",
     ]
     if with_answers:
-        passed = sum(not r[4] for r in rows)
-        lines.append(f"| Answers passing every check | {passed}/{len(rows)} |")
+        graded = [r for r in rows if not (r[4] and r[4][0].startswith("LLM unavailable"))]
+        passed = sum(not r[4] for r in graded)
+        lines.append(f"| Answers passing every check | {passed}/{len(graded)} graded"
+                     f"{f' ({len(rows) - len(graded)} not graded: LLM unavailable)' if len(graded) < len(rows) else ''} |")
     lines += ["", "## Ingestion", "", "| Case | Result | Detail |", "|---|---|---|"]
     lines += [f"| {c.id} | {'pass' if ok else 'FAIL'} | {d} |" for c, ok, d in ingest_rows]
     lines += ["", "## Questions", "", "| Case | Facets covered | Sources sent | Latency | Answer |", "|---|---|---|---|---|"]
