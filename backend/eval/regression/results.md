@@ -5,11 +5,11 @@ Fixtures and questions from the 8 October 2026 regression report (`eval/regressi
 | Metric | Result |
 |---|---|
 | Ingestion (valid accepted, invalid rejected, titles) | 7/7 |
-| Facet coverage (parts of a question with a supporting passage) | 33/37 (89%) |
-| Questions with every facet covered | 22/25 |
-| Compound questions fully covered | 5/8 |
-| Unanswerable questions stopped before the LLM | 3/6 |
-| Median retrieval latency | 142 ms |
+| Facet coverage (parts of a question with a supporting passage) | 37/37 (100%) |
+| Questions with every facet covered | 25/25 |
+| Compound questions fully covered | 8/8 |
+| Unanswerable questions stopped before the LLM (the rest must be refused by it) | 3/6 |
+| Median retrieval latency | 150 ms |
 
 ## Ingestion
 
@@ -27,34 +27,34 @@ Fixtures and questions from the 8 October 2026 regression report (`eval/regressi
 
 | Case | Facets covered | Sources sent | Latency | Answer |
 |---|---|---|---|---|
-| pdf-allocation | 1/1 | 2 | 114 ms | - |
-| pdf-percent | 1/1 | 2 | 120 ms | - |
-| pdf-cross-page | 2/2 | 2 | 118 ms | - |
-| pdf-refuse | FAIL: 1 sent | 1 | 106 ms | - |
-| docx-table | 1/1 | 1 | 143 ms | - |
-| docx-header | 1/1 | 4 | 142 ms | - |
-| docx-footer | 1/1 | 1 | 137 ms | - |
-| docx-list | 1/1 | 1 | 118 ms | - |
-| docx-conditional | 2/2 | 1 | 181 ms | - |
-| docx-reentry | 1/1 | 1 | 149 ms | - |
-| docx-refuse | FAIL: 6 sent | 6 | 138 ms | - |
-| md-table | 1/1 | 6 | 332 ms | - |
-| md-code | 1/1 | 1 | 274 ms | - |
-| md-compound | 3/4 | 3 | 308 ms | - |
-| md-isolated | 1/1 | 1 | 248 ms | - |
-| md-calc | 1/1 | 2 | 260 ms | - |
-| md-refuse | refused | 0 | 230 ms | - |
-| txt-accents | 1/1 | 6 | 111 ms | - |
-| txt-compound | 2/2 | 3 | 138 ms | - |
-| txt-checklist | 1/1 | 1 | 112 ms | - |
-| txt-conditional | 1/2 | 1 | 194 ms | - |
-| txt-calc | 1/1 | 1 | 129 ms | - |
-| txt-refuse | refused | 0 | 127 ms | - |
-| csv-row | 1/1 | 1 | 161 ms | - |
-| csv-overdue | 4/4 | 3 | 139 ms | - |
-| csv-total | 0/2 | 0 | 145 ms | - |
-| csv-refuse | FAIL: 1 sent | 1 | 167 ms | - |
-| html-focused | 1/1 | 1 | 126 ms | - |
-| html-compare | 2/2 | 4 | 191 ms | - |
-| html-modal-words | 1/1 | 6 | 142 ms | - |
-| html-refuse | refused | 0 | 142 ms | - |
+| pdf-allocation | 1/1 | 2 | 124 ms | - |
+| pdf-percent | 1/1 | 2 | 126 ms | - |
+| pdf-cross-page | 2/2 | 3 | 339 ms | - |
+| pdf-refuse | FAIL: 1 sent | 1 | 97 ms | - |
+| docx-table | 1/1 | 1 | 155 ms | - |
+| docx-header | 1/1 | 4 | 137 ms | - |
+| docx-footer | 1/1 | 1 | 131 ms | - |
+| docx-list | 1/1 | 1 | 139 ms | - |
+| docx-conditional | 2/2 | 1 | 447 ms | - |
+| docx-reentry | 1/1 | 1 | 113 ms | - |
+| docx-refuse | FAIL: 6 sent | 6 | 132 ms | - |
+| md-table | 1/1 | 6 | 243 ms | - |
+| md-code | 1/1 | 1 | 259 ms | - |
+| md-compound | 4/4 | 4 | 1176 ms | - |
+| md-isolated | 1/1 | 1 | 239 ms | - |
+| md-calc | 1/1 | 2 | 243 ms | - |
+| md-refuse | refused | 0 | 228 ms | - |
+| txt-accents | 1/1 | 6 | 125 ms | - |
+| txt-compound | 2/2 | 3 | 402 ms | - |
+| txt-checklist | 1/1 | 1 | 134 ms | - |
+| txt-conditional | 2/2 | 2 | 682 ms | - |
+| txt-calc | 1/1 | 1 | 144 ms | - |
+| txt-refuse | refused | 0 | 154 ms | - |
+| csv-row | 1/1 | 1 | 150 ms | - |
+| csv-overdue | 4/4 | 3 | 141 ms | - |
+| csv-total | 2/2 | 4 | 141 ms | - |
+| csv-refuse | FAIL: 1 sent | 1 | 178 ms | - |
+| html-focused | 1/1 | 1 | 123 ms | - |
+| html-compare | 2/2 | 4 | 654 ms | - |
+| html-modal-words | 1/1 | 6 | 144 ms | - |
+| html-refuse | refused | 0 | 155 ms | - |

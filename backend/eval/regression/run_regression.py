@@ -166,7 +166,7 @@ def format_report(ingest_rows, rows, with_answers: bool) -> str:
         f"({facets_found / facets:.0%}) |",
         f"| Questions with every facet covered | {complete}/{len(answerable)} |",
         f"| Compound questions fully covered | {sum(r[1] == len(r[0].facets) for r in compound)}/{len(compound)} |",
-        f"| Unanswerable questions stopped before the LLM | {refused}/{len(unanswerable)} |",
+        f"| Unanswerable questions stopped before the LLM (the rest must be refused by it) | {refused}/{len(unanswerable)} |",
         f"| Median retrieval latency | {sorted(r[3] for r in rows)[len(rows) // 2]:.0f} ms |",
     ]
     if with_answers:

@@ -14,14 +14,16 @@ import psycopg
 
 from app.config import get_settings
 from app.embed import Embedder
+from app.facets import split_facets
 from app.generate import NOT_FOUND, Citation, generate_answer
 from app.identifiers import (MAX_FOLLOWED, boundary, exact_matches, find_identifiers, is_document_code,
                              references, wants_reference_followed)
 from app.llm import LLMClient, LLMUnavailable
 from app.query import ParsedQuery, parse_query
 from app.rerank import TOP_K, Reranker, rerank
-from app.retrieve import Mode, retrieve
+from app.retrieve import CANDIDATES, FUSED_LIMIT, Mode, retrieve
 from app.search import SearchHit
+from app.tables import whole_table_hits
 
 Status = Literal["answered", "not_found", "llm_unavailable"]
 
@@ -40,6 +42,11 @@ class Answer:
 NOISE_FLOOR = 0.05      # reranker probability below which a passage is never useful
 RELATIVE_CUTOFF = 0.2   # ...and anything under 20% of the best passage's score is dropped
 
+# Compound questions (see app/facets.py): each part gets its own search, and its best passages
+# are added to the full question's. The LLM then sees at most MAX_SOURCES passages.
+FACET_K = 2
+MAX_SOURCES = 10
+
 
 @dataclass
 class Sources:
@@ -50,6 +57,8 @@ class Sources:
     timings: dict
     exact: list[SearchHit] = field(default_factory=list)
     final: Answer | None = None          # set when retrieval alone settles the answer
+    facets: list[str] = field(default_factory=list)      # the parts searched separately
+    uncovered: list[str] = field(default_factory=list)   # parts no passage supported, even on retry
 
 
 def gather_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None, question: str,
@@ -83,14 +92,68 @@ def gather_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reran
                                  idents, exact, hits, workspace_ids, top_k)
         timings["lookup_ms"] = (time.perf_counter() - started) * 1000
 
+    threshold = get_settings().min_relevance if min_relevance is None else min_relevance
+    facets: list[str] = []
+    uncovered: list[str] = []
+    if mode == "hybrid_rerank" and not exact:
+        facets = split_facets(question)
+        if facets:
+            started = time.perf_counter()
+            hits, uncovered = _add_facet_sources(conn, embedder, reranker, parsed.year, facets, hits,
+                                                 workspace_ids, threshold)
+            timings["facets_ms"] = (time.perf_counter() - started) * 1000
+
+    # Totals, counts and "list every..." over a small CSV need all of its rows (see app/tables.py).
+    table = whole_table_hits(conn, question, workspace_ids) if not exact else []
+    if table:
+        rest = [h for h in hits if h.document_id not in {t.document_id for t in table}]
+        hits = table + rest[: max(0, top_k - len(table))]
+
     # Don't spend an LLM call (and free quota) when nothing relevant was found.
     # Only reranker scores are 0..1 probabilities, so the threshold applies to that mode.
-    # An exact identifier match is relevant by definition, whatever the reranker thinks.
-    threshold = get_settings().min_relevance if min_relevance is None else min_relevance
-    if not hits or (not exact and mode == "hybrid_rerank" and hits[0].score < threshold):
-        return Sources(hits, parsed, timings, exact, final=Answer(
+    # An exact identifier match (or a whole table) is relevant by definition, whatever the
+    # reranker thinks. With several facets, one well-supported part is enough to answer.
+    relevant = bool(exact or table) or mode != "hybrid_rerank" or max((h.score for h in hits), default=0) >= threshold
+    if not hits or not relevant:
+        return Sources(hits, parsed, timings, exact, facets=facets, uncovered=uncovered, final=Answer(
             status="not_found", answer=NOT_FOUND, sources=hits, filters=parsed.filters, timings=timings))
-    return Sources(hits, parsed, timings, exact)
+    return Sources(hits, parsed, timings, exact, facets=facets, uncovered=uncovered)
+
+
+def _add_facet_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker, year: int | None,
+                       facets: list[str], hits: list[SearchHit], workspace_ids: list[UUID],
+                       threshold: float) -> tuple[list[SearchHit], list[str]]:
+    """Search each facet on its own and make sure its best passage reaches the LLM.
+
+    A facet whose best passage scores under the relevance threshold gets one wider retry (three
+    times the candidates). If that fails too, it's reported as uncovered, so the answer can say
+    "the passages I found don't cover X" instead of "the document doesn't say X".
+    Returns (sources, uncovered facets).
+    """
+    required: list[SearchHit] = []       # each covered facet's best passage: always kept
+    extra: list[SearchHit] = []
+    uncovered: list[str] = []
+    for number, facet in enumerate(facets, start=1):
+        found = retrieve(conn, embedder, facet, workspace_ids, reranker=reranker, year=year, top_k=FACET_K)
+        if not found or found[0].score < threshold:
+            found = retrieve(conn, embedder, facet, workspace_ids, reranker=reranker, year=year, top_k=FACET_K,
+                             candidates=CANDIDATES * 3, limit=FUSED_LIMIT * 2)
+        good = [h for h in found if h.score >= max(threshold, found[0].score * 0.5)] if found else []
+        if not good:
+            uncovered.append(facet)
+            continue
+        for h in good:
+            h.ranks["facet"] = number
+        required.append(good[0])
+        extra += good[1:]
+
+    keys = {(h.document_id, h.chunk_id) for h in required}
+    others = [h for h in _unique(hits + extra) if (h.document_id, h.chunk_id) not in keys]
+    room = max(0, MAX_SOURCES - len(_unique(required)))
+    kept = {(h.document_id, h.chunk_id) for h in _unique(required) + others[:room]}
+    # The full question's own order first, then what the facets added.
+    ordered = [h for h in _unique(hits + required + extra) if (h.document_id, h.chunk_id) in kept]
+    return ordered, uncovered
 
 
 def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None, llm: LLMClient,
