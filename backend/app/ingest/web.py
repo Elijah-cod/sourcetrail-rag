@@ -239,11 +239,25 @@ def extract_html(url: str, html: str) -> ExtractedDocument:
             section.heading = _unescape(section.heading) if section.heading else None
         heading_title = _unescape(heading_title) if heading_title else None
     metadata = trafilatura.extract_metadata(html, default_url=url)
-    title = (metadata.title if metadata else None) or heading_title or urlparse(url).hostname or url
+    title = (metadata.title if metadata else None) or heading_title or _html_title(html) or urlparse(url).hostname or url
     year = guess_year(metadata.date) if metadata and metadata.date else None
 
     return ExtractedDocument(title=title, source_type="url", sections=sections, published_year=year,
                              diagnostics=diagnostics)
+
+
+def _html_title(html: str) -> str | None:
+    """The page's <title>, else its first <h1>: a name people recognise, unlike the hostname."""
+    try:
+        tree = lxml.html.fromstring(html)
+    except (ValueError, lxml.etree.ParserError):
+        return None
+    for path in ("//title", "//h1"):
+        found = tree.xpath(path)
+        text = re.sub(r"\s+", " ", found[0].text_content()).strip() if found else ""
+        if text:
+            return text
+    return None
 
 
 def extract_url(url: str) -> ExtractedDocument:

@@ -241,3 +241,37 @@ def test_docx_headers_and_footers_are_labelled_sections():
     labelled = {s.heading: s.text for s in sections if s.heading in ("Page header", "Page footer")}
     assert labelled == {"Page header": "Harbour Board internal: code word HERON",
                         "Page footer": "Issued by the Lighthouse Directorate"}
+
+
+# ---------- titles (regression report, 8 Oct 2026: a PDF showed up as "(anonymous)") ----------
+
+REGRESSION = Path(__file__).parent.parent / "eval" / "regression" / "fixtures"
+
+
+@pytest.mark.parametrize("junk", ["(anonymous)", "anonymous", "(unspecified)", "Unknown", "[untitled]", "None"])
+def test_placeholder_titles_are_not_titles(junk):
+    from app.ingest.files import _usable_title
+    assert _usable_title(junk) is None
+
+
+def test_pdf_with_reportlab_anonymous_metadata_uses_its_page_one_title():
+    doc = extract_file("aurora_quay.pdf", (REGRESSION / "aurora_quay.pdf").read_bytes())
+    assert doc.title == "Aurora Quay Berth Allocation Plan 2026"
+
+
+def test_pdf_first_line_title_fallback():
+    from app.ingest.files import _first_line_title
+    assert _first_line_title("Harbour Plan 2026\nSome body text.") == "Harbour Plan 2026"
+    assert _first_line_title("# SEC-001: Architecture\ntext") is None        # a heading: already judged
+    assert _first_line_title("This plan sets out how berths are shared.\n") is None   # a sentence
+
+
+def test_docx_title_style_is_the_title():
+    doc = extract_file("sable_ridge.docx", (REGRESSION / "sable_ridge.docx").read_bytes())
+    assert doc.title == "Sable Ridge Tunnel Gas Safety Procedure"
+
+
+def test_txt_first_line_heading_is_the_title():
+    doc = extract_file("mont_riviere.txt", (REGRESSION / "mont_riviere.txt").read_bytes())
+    assert doc.title == "Mont Rivière Upper-Air Station"
+    assert extract_file("notes.txt", b"just some notes, nothing more.\n").title == "notes"

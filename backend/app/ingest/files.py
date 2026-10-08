@@ -44,13 +44,32 @@ def _stem(filename: str) -> str:
 
 
 # Placeholder titles that programs write into PDF metadata: never a real title.
-_JUNK_TITLE = re.compile(r"^(untitled|document\d*|title|presentation|slide \d+|microsoft word|powerpoint)\b"
+# ReportLab writes "(anonymous)", Word "Untitled", converters "unknown"; brackets are optional.
+_JUNK_TITLE = re.compile(r"^[(\[]?\s*(untitled|anonymous|unknown|unspecified|none|null|no title|document\d*|title"
+                         r"|presentation|slide \d+|microsoft word|powerpoint)\b"
                          r"|\.(docx?|pdf|pptx?|odt|rtf)$", re.IGNORECASE)
 
 
 def _usable_title(title: str | None) -> str | None:
     title = (title or "").strip()
     return title if len(title) >= 3 and not _JUNK_TITLE.search(title) else None
+
+
+def _first_line_title(text: str) -> str | None:
+    """A short first line that reads like a title ("Aurora Quay Berth Plan"), not a sentence.
+    Skipped when it's a Markdown heading: those were already considered (and possibly rejected
+    as a section heading, like "SEC-001: ..." in a handbook)."""
+    line = next((l.strip() for l in text.splitlines() if l.strip()), "")
+    if line.startswith(("#", "-", "*")) or line.endswith((".", ",", ":", ";")):
+        return None
+    return _usable_title(line) if len(line) <= 100 and 2 <= len(line.split()) <= 12 else None
+
+
+def _capitalise(heading: str) -> str:
+    """'MONT RIVIÈRE UPPER-AIR STATION' -> 'Mont Rivière Upper-Air Station' (all-caps only)."""
+    if heading != heading.upper():
+        return heading
+    return " ".join("-".join(part[:1] + part[1:].lower() for part in word.split("-")) for word in heading.split())
 
 
 def _decode(data: bytes) -> str:
@@ -77,8 +96,10 @@ def extract_pdf(filename: str, data: bytes) -> ExtractedDocument:
     if not any(s.text for s in sections):
         raise ExtractionError(f"'{filename}' has no extractable text (scanned PDFs need OCR, which isn't supported yet).")
 
-    # Metadata title if it's real, else the big heading on page 1, else the file name.
-    title = _usable_title(layout.metadata_title) or _usable_title(layout.title) or _stem(filename)
+    # Metadata title if it's real, else the big heading on page 1, else a title-like first line,
+    # else the file name.
+    title = (_usable_title(layout.metadata_title) or _usable_title(layout.title)
+             or _first_line_title(layout.pages[0] if layout.pages else "") or _stem(filename))
     return ExtractedDocument(title=title, source_type="pdf", sections=sections)
 
 
@@ -146,6 +167,7 @@ def extract_docx(filename: str, data: bytes) -> ExtractedDocument:
     heading: str | None = None
     buffer: list[str] = []
     tables = 0
+    title_style: str | None = None     # the first paragraph in Word's "Title" style
 
     def flush() -> None:
         if buffer:
@@ -166,6 +188,8 @@ def extract_docx(filename: str, data: bytes) -> ExtractedDocument:
         if block.style is not None and block.style.name.lower().startswith(("heading", "title")):
             flush()                # a new heading closes the previous section
             heading = text
+            if title_style is None and block.style.name.lower().startswith("title"):
+                title_style = text
         else:
             buffer.append(text)
     flush()
@@ -174,7 +198,7 @@ def extract_docx(filename: str, data: bytes) -> ExtractedDocument:
     sections += [Section(text=clean_text(t), heading="Page header") for t in headers]
     sections += [Section(text=clean_text(t), heading="Page footer") for t in footers]
 
-    title = (document.core_properties.title or "").strip() or _stem(filename)
+    title = _usable_title(document.core_properties.title) or _usable_title(title_style) or _stem(filename)
     return ExtractedDocument(title=title, source_type="docx", sections=sections)
 
 
@@ -298,7 +322,13 @@ def split_txt(text: str) -> list[Section]:
 
 
 def extract_txt(filename: str, data: bytes) -> ExtractedDocument:
-    return ExtractedDocument(title=_stem(filename), source_type="txt", sections=split_txt(_decode(data)))
+    text = _decode(data)
+    sections = split_txt(text)
+    # A heading on the file's very first line is its title ("MONT RIVIÈRE UPPER-AIR STATION").
+    first_line = next((l.strip() for l in text.splitlines() if l.strip()), "")
+    heading = sections[0].heading if sections else None
+    title = _usable_title(_capitalise(heading)) if heading and heading == _txt_heading(first_line) else None
+    return ExtractedDocument(title=title or _stem(filename), source_type="txt", sections=sections)
 
 
 _TITLE_COLUMN = re.compile(r"^(title|name|subject|heading|topic)$", re.IGNORECASE)

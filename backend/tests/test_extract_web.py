@@ -146,3 +146,11 @@ def test_tables_and_definition_lists_survive_fallback(monkeypatch):
     assert "| .example | documentation and examples in published material |" in text
     assert "- localhost: traditionally refers to the loop back address" in text
     assert "Home | Docs" not in text
+
+
+def test_title_falls_back_to_html_title_not_hostname(monkeypatch):
+    html = ("<html><head><title>Special-Use Names</title></head><body><main><p>"
+            + "Applications SHOULD NOT treat these names specially. " * 20 + "</p></main></body></html>")
+    monkeypatch.setattr(web.trafilatura, "extract_metadata", lambda *a, **k: None)
+    doc = web.extract_html("https://www.example.org/rfc/rfc0000.html", html)
+    assert doc.title == "Special-Use Names"
