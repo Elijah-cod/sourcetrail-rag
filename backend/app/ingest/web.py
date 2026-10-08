@@ -12,6 +12,7 @@ import socket
 from urllib.parse import urljoin, urlparse
 
 import httpx
+import lxml.html
 import trafilatura
 
 from app.ingest.files import split_markdown
@@ -22,6 +23,8 @@ TIMEOUT_SECONDS = 10
 MAX_REDIRECTS = 5
 USER_AGENT = "sourcetrail-rag/0.1 (+https://github.com/Elijah-cod/sourcetrail-rag)"
 MIN_WORDS = 20                   # less than this isn't a real article (e.g. just a menu)
+MIN_COVERAGE = 0.5               # trafilatura must keep at least half the main content's words...
+MIN_BLOCK_COVERAGE = 0.6         # ...and most of every <pre>/<table>/<dl> block, or we fall back
 
 # Markdown output escapes special characters: "ts_rank_cd" becomes "ts\_rank\_cd".
 # We want the plain text back so keyword search matches what people type.
@@ -75,22 +78,172 @@ def fetch_html(url: str) -> tuple[str, str]:
     raise ExtractionError("Too many redirects.")
 
 
+# ---------- extraction quality ----------
+# trafilatura is good at dropping menus and footers, but it can also drop the main content when
+# that content is in <pre>, <table> or <dl> markup (PEP 20's aphorisms are one <pre> block): the
+# page was then "added" with only its title and metadata indexed. So we measure the page's main
+# content ourselves, check trafilatura kept it, and if not, convert the main content directly.
+
+_CHROME_TAGS = ["script", "style", "noscript", "template", "svg", "nav", "header", "footer",
+                "aside", "form", "button", "iframe"]
+_CHROME_ROLES = ("navigation", "banner", "contentinfo", "search", "complementary")
+_IMPORTANT_TAGS = ("pre", "table", "dl")
+_WORD = re.compile(r"\w+", re.UNICODE)
+# Lines that are page furniture, not content, when judging whether anything real was extracted.
+_BOILERPLATE = re.compile(r"copyright|©|all rights reserved|last (modified|updated)|^source:|cookie|"
+                          r"privacy policy|terms of (use|service)|subscribe|sign (in|up)|log ?in|"
+                          r"skip to|table of contents|share this", re.IGNORECASE)
+
+
+def _words(text: str) -> list[str]:
+    return [w.lower() for w in _WORD.findall(text)]
+
+
+def _main_region(html: str):
+    """The page's main content element with navigation, headers, footers and scripts removed."""
+    try:
+        tree = lxml.html.fromstring(html)
+    except (lxml.etree.ParserError, ValueError):
+        return None
+    for element in tree.xpath("//" + " | //".join(_CHROME_TAGS)):
+        element.drop_tree()
+    for element in tree.xpath("//*[@role]"):
+        if element.get("role") in _CHROME_ROLES:
+            element.drop_tree()
+    for path in ("//main", "//*[@role='main']", "//article", "//body"):
+        found = tree.xpath(path)
+        if found:
+            return max(found, key=lambda e: len(e.text_content()))
+    return tree
+
+
+def _inline(element) -> str:
+    return re.sub(r"\s+", " ", element.text_content()).strip()
+
+
+def _region_to_markdown(region) -> str:
+    """Our own HTML -> Markdown for the main region: headings, paragraphs, lists, <pre>, tables
+    and definition lists. Plainer than trafilatura, but it never drops a block."""
+    out: list[str] = []
+
+    def walk(element) -> None:
+        tag = element.tag if isinstance(element.tag, str) else ""
+        if re.fullmatch(r"h[1-6]", tag):
+            text = _inline(element)
+            if text:
+                out.append("#" * int(tag[1]) + " " + text)
+        elif tag == "pre":
+            text = element.text_content().strip("\n")
+            if text.strip():
+                out.append("```\n" + text + "\n```")
+        elif tag == "table":
+            rows = []
+            for row in element.xpath(".//tr"):
+                cells = [_inline(c) for c in row.xpath("./th|./td")]
+                if any(cells):
+                    rows.append("| " + " | ".join(cells) + " |")
+            if rows:
+                out.append("\n".join(rows))
+        elif tag == "dl":
+            lines, term = [], None
+            for child in element:
+                if child.tag == "dt":
+                    term = _inline(child).rstrip(":").strip()
+                elif child.tag == "dd":
+                    text = _inline(child)
+                    lines.append(f"- {term}: {text}" if term else f"- {text}")
+            if lines:
+                out.append("\n".join(lines))
+        elif tag in ("ul", "ol"):
+            items = [_inline(li) for li in element.xpath("./li")]
+            items = [i for i in items if i]
+            if items:
+                out.append("\n".join(f"- {i}" for i in items))
+        elif tag in ("p", "blockquote") or (tag in ("div", "section", "article", "main", "body", "td")
+                                             and not any(isinstance(c.tag, str) for c in element)):
+            text = _inline(element)
+            if text:
+                out.append(("> " if tag == "blockquote" else "") + text)
+        else:
+            if element.text and element.text.strip() and tag in ("div", "section", "article", "main", "body"):
+                out.append(element.text.strip())
+            for child in element:
+                walk(child)
+                if child.tail and child.tail.strip() and tag in ("div", "section", "article", "main", "body"):
+                    out.append(child.tail.strip())
+
+    walk(region)
+    return "\n\n".join(out)
+
+
+def _coverage(source_words: list[str], kept: set[str]) -> float:
+    return sum(w in kept for w in source_words) / len(source_words) if source_words else 1.0
+
+
+def _missing_blocks(region, kept: set[str]) -> list[str]:
+    """Tags of substantial <pre>/<table>/<dl> blocks whose words are mostly missing from `kept`."""
+    missing = []
+    for element in region.xpath(".//pre | .//table | .//dl"):
+        words = _words(element.text_content())
+        if len(words) >= 8 and _coverage(words, kept) < MIN_BLOCK_COVERAGE:
+            missing.append(element.tag)
+    return missing
+
+
+def substantive_words(markdown: str) -> int:
+    """Words of real content: not headings, not short list items or labels (metadata like
+    '- Status: Active'), not page furniture like copyright or 'Last modified' lines."""
+    count = 0
+    for line in markdown.splitlines():
+        line = line.strip()
+        if not line or line.startswith(("#", "```")) or _BOILERPLATE.search(line):
+            continue
+        words = _words(line)
+        if len(words) <= 3 or (line.startswith(("- ", "* ", "|")) and len(words) <= 6):
+            continue
+        count += len(words)
+    return count
+
+
 def extract_html(url: str, html: str) -> ExtractedDocument:
     """Main content of an HTML page -> ExtractedDocument (no network access)."""
-    markdown = trafilatura.extract(html, url=url, output_format="markdown", include_formatting=True)
+    markdown = trafilatura.extract(html, url=url, output_format="markdown", include_formatting=True,
+                                   include_tables=True) or ""
+    region = _main_region(html)
+    region_words = _words(region.text_content()) if region is not None else []
+    diagnostics = {"extractor": "trafilatura", "original_chars": len(html),
+                   "main_content_words": len(region_words)}
+
+    if region is not None and region_words:
+        kept = set(_words(markdown))
+        coverage = _coverage(region_words, kept)
+        dropped = _missing_blocks(region, kept)
+        diagnostics.update(trafilatura_coverage=round(coverage, 2), dropped_elements=sorted(set(dropped)))
+        if dropped or coverage < MIN_COVERAGE:
+            fallback = _region_to_markdown(region)
+            if substantive_words(fallback) > substantive_words(markdown):
+                markdown = fallback
+                diagnostics["extractor"] = "main-content fallback"
+
     if not markdown or len(markdown.split()) < MIN_WORDS:
         raise ExtractionError("Couldn't find readable article text on that page.")
+    if substantive_words(markdown) < MIN_WORDS:
+        raise ExtractionError("Only the page's title, metadata or navigation could be read, not its "
+                              "main text, so it wasn't added. Try a page with the article itself.")
+    diagnostics["retained_chars"] = len(markdown)
 
     heading_title, sections = split_markdown(markdown)
-    for section in sections:
-        section.text = _unescape(section.text)
-        section.heading = _unescape(section.heading) if section.heading else None
-    heading_title = _unescape(heading_title) if heading_title else None
+    if diagnostics["extractor"] == "trafilatura":       # only trafilatura escapes its Markdown
+        for section in sections:
+            section.text = _unescape(section.text)
+            section.heading = _unescape(section.heading) if section.heading else None
+        heading_title = _unescape(heading_title) if heading_title else None
     metadata = trafilatura.extract_metadata(html, default_url=url)
     title = (metadata.title if metadata else None) or heading_title or urlparse(url).hostname or url
     year = guess_year(metadata.date) if metadata and metadata.date else None
 
-    return ExtractedDocument(title=title, source_type="url", sections=sections, published_year=year)
+    return ExtractedDocument(title=title, source_type="url", sections=sections, published_year=year,
+                             diagnostics=diagnostics)
 
 
 def extract_url(url: str) -> ExtractedDocument:

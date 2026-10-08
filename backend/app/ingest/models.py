@@ -24,6 +24,8 @@ class ExtractedDocument:
     source_type: str             # pdf | docx | md | txt | csv | url
     sections: list[Section] = field(default_factory=list)
     published_year: int | None = None
+    # How extraction went, e.g. {"extractor": "trafilatura", "retained_chars": 5120}. Not stored yet.
+    diagnostics: dict = field(default_factory=dict)
 
 
 _YEAR = re.compile(r"(?<!\d)(19\d{2}|20\d{2})(?!\d)")

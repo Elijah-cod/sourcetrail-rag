@@ -1,9 +1,12 @@
 import socket
+from pathlib import Path
 
 import pytest
 
 from app.ingest import ExtractionError
 from app.ingest import web
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 ARTICLE = """
 <html><head><title>Ignored tab title</title><meta name="date" content="2024-03-01"></head>
@@ -65,3 +68,81 @@ def test_extract_url_wires_fetch_and_extract(monkeypatch):
     monkeypatch.setattr(web, "fetch_html", lambda url: ("https://example.com/final", ARTICLE))
     doc = web.extract_url("  https://example.com/start  ")
     assert doc.title == "Postgres Full-Text Search"
+
+
+# ---------- extraction quality (SourceTrail test report, 8 Oct 2026) ----------
+# PEP 20 was "added" with only its title and metadata indexed: its aphorisms sit in one <pre>
+# block that the article extractor dropped. tests/fixtures/pep20_like.html mirrors that page.
+
+PEP20 = (FIXTURES / "pep20_like.html").read_text(encoding="utf-8")
+PEP20_URL = "https://peps.python.org/pep-0020/"
+# What the extractor kept of the real page: title + the metadata field list, nothing else.
+PEP20_METADATA_ONLY = """# PEP 20 – The Zen of Python
+
+- Author:
+- Tim Peters \\<tim.peters at gmail.com>
+- Status:
+- Active
+- Type:
+- Informational
+- Created:
+- 19-Aug-2004
+
+## Table of Contents
+"""
+
+
+def all_text(doc):
+    return "\n".join(s.text for s in doc.sections)
+
+
+def test_pre_block_content_is_indexed():
+    doc = web.extract_html(PEP20_URL, PEP20)
+    text = all_text(doc)
+    assert "Beautiful is better than ugly." in text
+    assert "Namespaces are one honking great idea" in text
+    assert "The Zen of Python" in [s.heading for s in doc.sections]
+    assert doc.diagnostics["dropped_elements"] == []
+
+
+def test_dropped_pre_block_falls_back_to_main_content(monkeypatch):
+    monkeypatch.setattr(web.trafilatura, "extract", lambda *a, **k: PEP20_METADATA_ONLY)
+    doc = web.extract_html(PEP20_URL, PEP20)
+    text = all_text(doc)
+    assert "Errors should never pass silently." in text
+    assert "only 19 of which have been written down" in text          # the abstract paragraph too
+    assert "Author: Tim Peters" in text                                 # metadata kept, as a list
+    assert "Page Source (GitHub)" not in text                           # the sidebar <nav> isn't
+    assert doc.diagnostics["extractor"] == "main-content fallback"
+    assert doc.diagnostics["dropped_elements"] == ["pre"]
+    assert doc.diagnostics["retained_chars"] > 1000
+
+
+def test_page_with_only_title_and_metadata_is_rejected():
+    html = """<html><head><title>PEP 9999 – Placeholder</title></head><body><article>
+      <h1>PEP 9999 – Placeholder</h1>
+      <dl><dt>Author:</dt><dd>Jane Doe &lt;jane at example.com&gt;</dd><dt>Status:</dt><dd>Draft</dd>
+          <dt>Type:</dt><dd>Informational</dd><dt>Created:</dt><dd>01-Jan-2026</dd>
+          <dt>Post-History:</dt><dd>02-Jan-2026, 03-Jan-2026</dd></dl>
+      <ul><li>Abstract</li><li>Motivation</li><li>Specification</li><li>Copyright</li></ul>
+      <p>Last modified: 2026-01-03 10:00:00 GMT</p><p>Copyright 2026 Example Foundation.</p>
+    </article></body></html>"""
+    with pytest.raises(ExtractionError, match="title, metadata or navigation"):
+        web.extract_html("https://example.com/pep-9999", html)
+
+
+def test_tables_and_definition_lists_survive_fallback(monkeypatch):
+    html = """<html><body><nav>Home | Docs</nav><main>
+      <h1>Reserved names</h1>
+      <p>Short intro.</p>
+      <table><tr><th>Name</th><th>Purpose</th></tr>
+             <tr><td>.test</td><td>testing of current or new DNS related code</td></tr>
+             <tr><td>.example</td><td>documentation and examples in published material</td></tr>
+             <tr><td>.invalid</td><td>names that are obviously invalid and must never resolve</td></tr></table>
+      <dl><dt>localhost</dt><dd>traditionally refers to the loop back address of the local host machine</dd></dl>
+    </main></body></html>"""
+    monkeypatch.setattr(web.trafilatura, "extract", lambda *a, **k: "# Reserved names\n\nShort intro.")
+    text = all_text(web.extract_html("https://example.com/rfc", html))
+    assert "| .example | documentation and examples in published material |" in text
+    assert "- localhost: traditionally refers to the loop back address" in text
+    assert "Home | Docs" not in text
