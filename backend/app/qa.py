@@ -4,6 +4,7 @@ Try it from the terminal (needs LLM_API_KEY in .env):
     uv run python -m app.qa "your question"
 """
 
+import re
 import sys
 import time
 from dataclasses import dataclass, field
@@ -46,6 +47,14 @@ RELATIVE_CUTOFF = 0.2   # ...and anything under 20% of the best passage's score 
 # are added to the full question's. The LLM then sees at most MAX_SOURCES passages.
 FACET_K = 2
 MAX_SOURCES = 10
+
+# "The passages I was given don't cover X", "the document does not mention X"... An answer that
+# says part of the question is missing gets one targeted search for that part before it's shown.
+_ABSENCE = re.compile(
+    r"\b(?:do(?:es)?n[o']?t|did ?n[o']?t|do(?:es)? not|did not)\s+(?:cover|mention|include|contain|say|state|specify|"
+    r"describe|provide|address|give)\b|\bnot (?:covered|mentioned|included|specified|stated|provided|"
+    r"described|addressed)\b|\bno (?:mention|information|details?)\b", re.IGNORECASE)
+MAX_RETRY_QUERIES = 2
 
 
 @dataclass
@@ -166,16 +175,51 @@ def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None,
 
     started = time.perf_counter()
     try:
-        text, citations = generate_answer(llm, question, hits)
+        text, citations = generate_answer(llm, question, hits, found.uncovered)
         timings["generation_ms"] = (time.perf_counter() - started) * 1000
     except LLMUnavailable as exc:
         # Still useful: show the sources we found, with a clear message.
         return Answer(status="llm_unavailable", sources=hits, filters=parsed.filters, timings=timings,
                       answer=f"{exc} Here are the most relevant passages I found.")
 
+    # "Not retrieved" isn't "not in the document": search once more for what the answer says is
+    # missing, and answer again only if that finds something new.
+    if mode == "hybrid_rerank" and text.strip() != NOT_FOUND:
+        started = time.perf_counter()
+        more = _search_for_gaps(conn, embedder, reranker, text, hits, workspace_ids, parsed.year,
+                                get_settings().min_relevance if min_relevance is None else min_relevance)
+        timings["gap_search_ms"] = (time.perf_counter() - started) * 1000
+        if more:
+            try:
+                text, citations = generate_answer(llm, question, _unique(hits + more), found.uncovered)
+                hits = _unique(hits + more)
+            except LLMUnavailable:
+                pass                       # keep the first answer (its citations still match)
+            timings["gap_answer_ms"] = (time.perf_counter() - started) * 1000
+
     status: Status = "not_found" if text.strip() == NOT_FOUND else "answered"
     return Answer(status=status, answer=text, citations=citations, sources=hits,
                   filters=parsed.filters, timings=timings)
+
+
+def missing_parts(answer: str) -> list[str]:
+    """Sentences of an answer that say something isn't covered, without their citations."""
+    sentences = re.split(r"(?<=[.!?])\s+|\n+", answer)
+    gaps = [re.sub(r"\s+([.,;:!?])", r"\1", re.sub(r"\[\d+\]", "", s)).strip() for s in sentences if _ABSENCE.search(s)]
+    return gaps[:MAX_RETRY_QUERIES]
+
+
+def _search_for_gaps(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker, answer: str,
+                     hits: list[SearchHit], workspace_ids: list[UUID], year: int | None,
+                     threshold: float) -> list[SearchHit]:
+    """Relevant passages for what the answer says is missing that the LLM hasn't seen yet."""
+    sent = {(h.document_id, h.chunk_id) for h in hits}
+    new: list[SearchHit] = []
+    for gap in missing_parts(answer):
+        found = retrieve(conn, embedder, gap, workspace_ids, reranker=reranker, year=year, top_k=FACET_K,
+                         candidates=CANDIDATES * 3, limit=FUSED_LIMIT * 2)
+        new += [h for h in found if h.score >= threshold and (h.document_id, h.chunk_id) not in sent]
+    return _unique(new)
 
 
 def _mentions(hit: SearchHit, ident: str) -> bool:

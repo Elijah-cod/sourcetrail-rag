@@ -92,3 +92,85 @@ def test_repeated_neighbouring_citations_are_merged():
     answer, citations = extract_citations("Proxies cache 【1†L1-L4】【1†L5-L9】. Both [2] [2][1].", HITS)
     assert answer == "Proxies cache [1]. Both [2][1]."
     assert [c.chunk_id for c in citations] == ["doc:c000", "doc:c001"]
+
+
+# ---------- regression report, 8 Oct 2026 ----------
+
+from dataclasses import replace as _replace
+
+from app.generate import dedupe_list_items, generate_answer
+from app.llm import LLMUnavailable
+from app.modality import mismatches, restore
+
+RFC = [_replace(hit(0), text="Applications SHOULD recognise .quayside names. Libraries MUST NOT forward them."),
+       _replace(hit(1), text="Applications SHOULD NOT treat .sample names specially.")]
+
+
+class ScriptedLLM:
+    def __init__(self, *replies):
+        self.replies, self.calls = list(replies), []
+
+    def complete(self, messages):
+        self.calls.append(messages)
+        reply = self.replies.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+
+def test_prompt_preserves_requirement_words_and_separates_inference():
+    assert "MUST NOT, SHOULD, SHOULD NOT" in SYSTEM_PROMPT
+    assert "infer" in SYSTEM_PROMPT
+    assert "Never say a document doesn't contain" in SYSTEM_PROMPT
+
+
+def test_strengthened_should_is_detected_but_matching_words_are_not():
+    found = mismatches("Applications must recognise .quayside names [1]. Libraries must not forward them [1].",
+                       [h.text for h in RFC])
+    assert [(m.said, m.source_says) for m in found] == [("must", "SHOULD")]
+
+
+def test_weakened_must_is_detected():
+    found = mismatches("Libraries should not forward them [1].", [RFC[0].text])
+    assert [(m.said, m.source_says) for m in found] == [("should not", "MUST NOT")]
+
+
+def test_llm_is_asked_once_to_restore_the_words():
+    llm = ScriptedLLM("Applications must not treat .sample names specially [2].",
+                      "Applications SHOULD NOT treat .sample names specially [2].")
+    text, citations = generate_answer(llm, "How are .sample names treated?", RFC)
+    assert text == "Applications SHOULD NOT treat .sample names specially [1]."
+    assert len(llm.calls) == 2 and 'says "SHOULD NOT"' in llm.calls[1][-1]["content"]
+
+
+def test_words_are_swapped_in_place_if_the_rewrite_fails():
+    llm = ScriptedLLM("Applications must recognise them [1], and must not treat .sample names specially [2].",
+                      LLMUnavailable("quota"))
+    text, _ = generate_answer(llm, "q", RFC)
+    assert text == "Applications SHOULD recognise them [1], and SHOULD NOT treat .sample names specially [2]."
+
+
+def test_restore_leaves_correct_sentences_alone():
+    answer = "Libraries must not forward them [1]."
+    assert restore(answer, [RFC[0].text]) == answer
+
+
+def test_uncovered_parts_are_named_in_the_prompt():
+    content = build_messages("q", HITS, uncovered=["the barge is in the chamber"])[1]["content"]
+    assert 'no passage about "the barge is in the chamber"' in content
+
+
+def test_duplicate_list_items_are_dropped_before_rendering():
+    answer = ("Overdue assets:\n- **TG-102** (Buoy) [1]\n- **TG-202** (Sensor) [1]\n"
+              "- **TG-202** (Sensor) (duplicate entry removed) [1]\n- TG-301 [2]\n- TG-102 (Buoy) [1]")
+    assert dedupe_list_items(answer) == "Overdue assets:\n- **TG-102** (Buoy) [1]\n- **TG-202** (Sensor) [1]\n- TG-301 [2]"
+
+
+def test_items_sharing_a_code_but_saying_different_things_are_kept():
+    answer = "- TG-202: cable chafed [1]\n- TG-202: inspection overdue [1]\n- (duplicate keys are rejected) [2]"
+    assert dedupe_list_items(answer) == answer
+
+
+def test_words_after_the_last_citation_are_checked_against_it():
+    answer = "Applications must recognise .quayside names [1] and must cache them."
+    assert restore(answer, [RFC[0].text]) == "Applications SHOULD recognise .quayside names [1] and SHOULD cache them."

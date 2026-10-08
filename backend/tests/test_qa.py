@@ -76,3 +76,33 @@ def test_year_in_question_filters_documents(db, fake_embedder, fake_reranker, wo
     result = ask(db, fake_embedder, fake_reranker, llm, "Why did revenue change in 2024?", [workspace_id])
     assert result.filters == {"year": 2024}
     assert {s.document_title for s in result.sources} == {"Report 2024"}
+
+
+def test_answer_claiming_a_gap_gets_one_targeted_search(db, fake_embedder, fake_reranker, workspace_id):
+    """Regression report, 8 Oct 2026: 'not retrieved' was reported as 'not in the document'."""
+    from app.qa import missing_parts
+    sections = [Section(text="Close the upper paddles when the pump fails.", heading="Pump failure")]
+    sections += [Section(text=f"Routine {w} notes for the {w} crew.", heading=w) for w in
+                 ("mowing", "painting", "fencing", "signage", "licences", "training", "fees", "moorings")]
+    sections.append(Section(text="Secure the barge with two lines fore and aft.", heading="Barge in chamber"))
+    index_document(db, fake_embedder, workspace_id, ExtractedDocument(title="Guide", source_type="md",
+                                                                     sections=sections))
+    llm = FakeLLM()
+    llm.reply = "Close the upper paddles [1]. The passages I was given don't cover securing the barge."
+    replies = iter([llm.reply, "Close the upper paddles [1] and secure the barge with two lines [2]."])
+    llm.complete = lambda messages: (llm.calls.append(messages), next(replies))[1]
+
+    result = ask(db, fake_embedder, fake_reranker, llm, "What do I do when the pump fails?", [workspace_id],
+                 top_k=1)
+    assert missing_parts(llm.reply) == ["The passages I was given don't cover securing the barge."]
+    assert len(llm.calls) == 2
+    assert "two lines fore and aft" in llm.calls[1][1]["content"]       # the found passage was sent
+    assert result.answer.endswith("secure the barge with two lines [2].")
+    assert {c.section for c in result.citations} == {"Pump failure", "Barge in chamber"}
+
+
+def test_no_second_call_when_the_answer_claims_no_gap(db, fake_embedder, fake_reranker, workspace_id):
+    add_report(db, fake_embedder, workspace_id)
+    llm = FakeLLM()
+    ask(db, fake_embedder, fake_reranker, llm, "Why did revenue decline?", [workspace_id])
+    assert len(llm.calls) == 1
