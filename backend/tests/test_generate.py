@@ -178,3 +178,16 @@ def test_words_after_the_last_citation_are_checked_against_it():
 
 def test_prompt_forbids_carrying_a_rule_to_another_item():
     assert "Never carry a rule written for one" in SYSTEM_PROMPT
+
+
+def test_non_breaking_hyphens_and_narrow_spaces_become_plain():
+    """Benchmark run, 8 Oct 2026: 'AQ‑POLAR‑73' and 'SHOULD NOT' failed every exact check."""
+    llm = ScriptedLLM("The identifier is AQ‑POLAR‑73 and it is 30 % [1].")
+    text, _ = generate_answer(llm, "q", HITS)
+    assert text == "The identifier is AQ-POLAR-73 and it is 30 % [1]."
+
+
+def test_requirement_word_with_a_narrow_space_is_still_checked():
+    llm = ScriptedLLM("Applications must not treat .sample names specially [2].", LLMUnavailable("quota"))
+    text, _ = generate_answer(llm, "q", RFC)
+    assert text == "Applications SHOULD NOT treat .sample names specially [1]."

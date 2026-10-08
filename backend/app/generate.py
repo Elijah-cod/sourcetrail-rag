@@ -94,6 +94,17 @@ _ODD_CITATION = re.compile(r"[\[【]\s*(\d+(?:\s*,\s*\d+)*)\s*(?:†[^\]】]*)?[
 _LEFTOVER_MARKER = re.compile(r"【[^】]*】")
 
 
+# gpt-oss writes codes with non-breaking hyphens ("AQ‑POLAR‑73", U+2011) and puts narrow
+# no-break spaces in "30 %" and "SHOULD NOT". They look right but break copy-paste, search and
+# our own checks (a requirement word split by U+202F isn't recognised), so they become plain.
+_TYPOGRAPHY = str.maketrans({"\u2010": "-", "\u2011": "-", "\u2012": "-", "\u00a0": " ", "\u202f": " ",
+                             "\u2007": " ", "\u2009": " ", "\u200a": " ", "\u200b": ""})
+
+
+def normalize_typography(answer: str) -> str:
+    return answer.translate(_TYPOGRAPHY)
+
+
 def normalize_citations(answer: str) -> str:
     """Rewrite non-standard citation markers to [n]; drop any we can't read (e.g. 【source】)."""
     answer = _ODD_CITATION.sub(lambda m: f"[{m.group(1)}]", answer)
@@ -198,15 +209,15 @@ def generate_answer(llm: LLMClient, question: str, hits: list[SearchHit],
     """Ask the LLM, check its requirement words and citations, tidy repeats.
     Raises LLMUnavailable if the first call fails."""
     messages = build_messages(question, hits, uncovered)
-    raw = normalize_citations(llm.complete(messages))
+    raw = normalize_citations(normalize_typography(llm.complete(messages)))
     sources = [hit.text for hit in hits]
     found = modality.mismatches(raw, sources)
     if found:
         # One rewrite, with the exact words to restore; anything still wrong is swapped in place.
         try:
-            rewrite = normalize_citations(llm.complete(messages + [
+            rewrite = normalize_citations(normalize_typography(llm.complete(messages + [
                 {"role": "assistant", "content": raw},
-                {"role": "user", "content": modality.correction_note(found)}]))
+                {"role": "user", "content": modality.correction_note(found)}])))
             if len(modality.mismatches(rewrite, sources)) < len(found):
                 raw = rewrite
         except LLMUnavailable:
