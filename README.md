@@ -51,3 +51,18 @@ uv run python -m eval.run_eval     # compare vector / keyword / hybrid / hybrid 
 ```
 
 Results are written to `backend/eval/results.md`.
+
+### Regression benchmark
+
+Six small fixtures (PDF, DOCX, Markdown, Latin-1 TXT, CSV, HTML) with their questions and
+expected results live in `backend/eval/regression/`. Each fixture is indexed into a temporary
+workspace and removed afterwards:
+
+```bash
+cd backend
+uv run python -m eval.regression.run_regression            # ingestion + retrieval coverage, no LLM calls
+uv run python -m eval.regression.run_regression --answers  # also grades the LLM's answers (uses quota)
+```
+
+Results are written to `backend/eval/regression/results.md`. To rebuild the fixtures:
+`uv run --with reportlab python -m eval.regression.make_fixtures`.
