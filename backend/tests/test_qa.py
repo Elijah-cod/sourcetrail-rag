@@ -106,3 +106,23 @@ def test_no_second_call_when_the_answer_claims_no_gap(db, fake_embedder, fake_re
     llm = FakeLLM()
     ask(db, fake_embedder, fake_reranker, llm, "Why did revenue decline?", [workspace_id])
     assert len(llm.calls) == 1
+
+
+def test_passage_pointing_back_brings_the_rule_it_points_to(db, fake_embedder, fake_reranker, workspace_id):
+    """RFC 6761: '.localhost' authoritative servers handle names 'as described above for caching
+    DNS servers'. The model needs that earlier rule, not another domain's."""
+    from app.qa import gather_sources
+    caching = ("Caching DNS servers SHOULD recognize localhost names as special and SHOULD NOT attempt to "
+               "look up NS records for them. They generate an immediate positive response for address "
+               "queries and an immediate negative response for other queries. ") * 4
+    authoritative = "Authoritative DNS servers SHOULD recognize localhost names as special and handle them as described above for caching DNS servers."
+    index_document(db, fake_embedder, workspace_id, ExtractedDocument(title="RFC", source_type="url", sections=[
+        Section(text=caching + "\n\n" + authoritative, heading="6.3. Domain Name Reservation Considerations for localhost"),
+        Section(text="Authoritative DNS servers SHOULD generate immediate negative responses for all such queries.",
+                heading="6.4. Domain Name Reservation Considerations for invalid")]))
+    found = gather_sources(db, fake_embedder, fake_reranker, "What do authoritative servers do with localhost "
+                           "names as described above?", [workspace_id], top_k=1)
+    texts = [h.text for h in found.hits]
+    assert any("handle them as described above" in t for t in texts)
+    pointer = next(i for i, t in enumerate(texts) if "handle them as described above" in t)
+    assert pointer > 0 and "immediate positive response" in texts[pointer - 1]

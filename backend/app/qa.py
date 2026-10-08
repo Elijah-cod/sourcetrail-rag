@@ -4,6 +4,7 @@ Try it from the terminal (needs LLM_API_KEY in .env):
     uv run python -m app.qa "your question"
 """
 
+import math
 import re
 import sys
 import time
@@ -15,7 +16,7 @@ import psycopg
 
 from app.config import get_settings
 from app.embed import Embedder
-from app.facets import split_facets
+from app.facets import content_words, split_facets
 from app.generate import NOT_FOUND, Citation, generate_answer
 from app.identifiers import (MAX_FOLLOWED, boundary, exact_matches, find_identifiers, is_document_code,
                              references, wants_reference_followed)
@@ -23,7 +24,7 @@ from app.llm import LLMClient, LLMUnavailable
 from app.query import ParsedQuery, parse_query
 from app.rerank import TOP_K, Reranker, rerank
 from app.retrieve import CANDIDATES, FUSED_LIMIT, Mode, retrieve
-from app.search import SearchHit
+from app.search import HIT_COLUMNS, SearchHit
 from app.tables import whole_table_hits
 
 Status = Literal["answered", "not_found", "llm_unavailable"]
@@ -45,7 +46,9 @@ RELATIVE_CUTOFF = 0.2   # ...and anything under 20% of the best passage's score 
 
 # Compound questions (see app/facets.py): each part gets its own search, and its best passages
 # are added to the full question's. The LLM then sees at most MAX_SOURCES passages.
-FACET_K = 2
+FACET_CANDIDATES = 4
+FACET_POOL = 10         # fused candidates reranked per facet (the full question reranks 30)
+NEAR_TIE = 2.0          # reranker logits: a runner-up this close to a facet's best passage is kept too
 MAX_SOURCES = 10
 
 # "The passages I was given don't cover X", "the document does not mention X"... An answer that
@@ -104,13 +107,18 @@ def gather_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reran
     threshold = get_settings().min_relevance if min_relevance is None else min_relevance
     facets: list[str] = []
     uncovered: list[str] = []
-    if mode == "hybrid_rerank" and not exact:
+    if mode == "hybrid_rerank":
+        # Also when the question names a code: "pump KITE-11 fails during a Copper alert while
+        # Solace is in Lock Four" needs the Copper-alert section, which doesn't mention KITE-11.
         facets = split_facets(question)
         if facets:
             started = time.perf_counter()
             hits, uncovered = _add_facet_sources(conn, embedder, reranker, parsed.year, facets, hits,
-                                                 workspace_ids, threshold)
+                                                 workspace_ids, threshold, idents)
             timings["facets_ms"] = (time.perf_counter() - started) * 1000
+
+    # "Handle them as described above for caching DNS servers": the rule is in the previous chunk.
+    hits = _add_referenced_neighbours(conn, hits)
 
     # Totals, counts and "list every..." over a small CSV need all of its rows (see app/tables.py).
     table = whole_table_hits(conn, question, workspace_ids) if not exact else []
@@ -131,38 +139,124 @@ def gather_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reran
 
 def _add_facet_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker, year: int | None,
                        facets: list[str], hits: list[SearchHit], workspace_ids: list[UUID],
-                       threshold: float) -> tuple[list[SearchHit], list[str]]:
+                       threshold: float, idents: list[str]) -> tuple[list[SearchHit], list[str]]:
     """Search each facet on its own and make sure its best passage reaches the LLM.
 
     A facet whose best passage scores under the relevance threshold gets one wider retry (three
-    times the candidates). If that fails too, it's reported as uncovered, so the answer can say
-    "the passages I found don't cover X" instead of "the document doesn't say X".
-    Returns (sources, uncovered facets).
+    times the candidates). The cross-encoder underrates terse parts ("what are all four checklist
+    items" scored 0.002 against the PRELAUNCH CHECKLIST section), so a candidate whose heading
+    contains one of the facet's words also counts. If nothing does, the facet is reported as
+    uncovered, so the answer can say "the passages I found don't cover X" instead of "the document
+    doesn't say X". With `idents` (the question names SEC-014...), passages defining a *different*
+    code of the same kind are lookalikes and never added. Returns (sources, uncovered facets).
     """
-    required: list[SearchHit] = []       # each covered facet's best passage: always kept
-    extra: list[SearchHit] = []
+    required: list[SearchHit] = []       # each covered facet's best passages: always kept
     uncovered: list[str] = []
+    sent = {(h.document_id, h.chunk_id) for h in hits}
+    asked_docs = {h.document_id for h in hits}
     for number, facet in enumerate(facets, start=1):
-        found = retrieve(conn, embedder, facet, workspace_ids, reranker=reranker, year=year, top_k=FACET_K)
-        if not found or found[0].score < threshold:
-            found = retrieve(conn, embedder, facet, workspace_ids, reranker=reranker, year=year, top_k=FACET_K,
-                             candidates=CANDIDATES * 3, limit=FUSED_LIMIT * 2)
-        good = [h for h in found if h.score >= max(threshold, found[0].score * 0.5)] if found else []
-        if not good:
+        best: list[SearchHit] = []
+        # A small pool first (reranking is the slow part); the wide one only if that finds nothing.
+        for pool in (FACET_POOL, FUSED_LIMIT * 2):
+            found = retrieve(conn, embedder, facet, workspace_ids, reranker=reranker, year=year,
+                             top_k=FACET_CANDIDATES, candidates=max(CANDIDATES, pool), limit=pool)
+            found = [h for h in found if not _lookalike(h, idents)]
+            good = [h for h in found if h.score >= threshold]
+            # A runner-up the reranker rates about as highly is kept too: "Solace is in Lock Four"
+            # matches both the lock schedule and the Copper-alert rule for Solace (0.999 / 0.997).
+            best = good[:1] + [h for h in good[1:2] if _logit(good[0].score) - _logit(h.score) <= NEAR_TIE]
+            if best or (found and (found[0].document_id, found[0].chunk_id) in sent):
+                break                    # covered, or its best passage is already there (underrated)
+            match = _heading_match(facet, found, asked_docs)
+            if match:
+                best = [match]
+                break
+        if not best and found and (found[0].document_id, found[0].chunk_id) in sent:
+            continue
+        if not best:
             uncovered.append(facet)
             continue
-        for h in good:
+        for h in best:
             h.ranks["facet"] = number
-        required.append(good[0])
-        extra += good[1:]
+        required += best
 
     keys = {(h.document_id, h.chunk_id) for h in required}
-    others = [h for h in _unique(hits + extra) if (h.document_id, h.chunk_id) not in keys]
+    others = [h for h in hits if (h.document_id, h.chunk_id) not in keys]
     room = max(0, MAX_SOURCES - len(_unique(required)))
     kept = {(h.document_id, h.chunk_id) for h in _unique(required) + others[:room]}
     # The full question's own order first, then what the facets added.
-    ordered = [h for h in _unique(hits + required + extra) if (h.document_id, h.chunk_id) in kept]
+    ordered = [h for h in _unique(hits + required) if (h.document_id, h.chunk_id) in kept]
     return ordered, uncovered
+
+
+# A passage that only points back at an earlier rule ("as described above") can't be applied alone.
+_BACK_REFERENCE = re.compile(
+    r"\b(?:as|described|listed|stated|specified|explained|defined|shown)\s+(?:above|earlier|previously)\b"
+    r"|\bthe (?:previous|preceding) (?:section|item|paragraph|rule|step)s?\b", re.IGNORECASE)
+MAX_NEIGHBOURS = 2
+
+
+def _add_referenced_neighbours(conn: psycopg.Connection, hits: list[SearchHit]) -> list[SearchHit]:
+    """Put the previous chunk of the same section right before a passage that refers back to it.
+
+    RFC 6761 says .localhost authoritative servers SHOULD handle names "as described above for
+    caching DNS servers". Without the chunk that says what that is, the model borrowed another
+    domain's rule ("generate immediate negative responses") from a different source.
+    """
+    sent = {(h.document_id, h.chunk_id) for h in hits}
+    out: list[SearchHit] = []
+    added = 0
+    for hit in hits:
+        if added < MAX_NEIGHBOURS and _BACK_REFERENCE.search(hit.text):
+            row = conn.execute(f"""
+                SELECT {HIT_COLUMNS}, %(score)s
+                FROM chunks c JOIN documents d ON d.id = c.document_id
+                WHERE c.document_id = %(doc)s
+                  AND c.ord = (SELECT ord - 1 FROM chunks WHERE document_id = %(doc)s AND id = %(id)s)
+            """, {"doc": hit.document_id, "id": hit.chunk_id, "score": hit.score}).fetchone()
+            if row is not None:
+                previous = SearchHit(*row)
+                same_place = previous.section == hit.section or previous.page == hit.page and hit.page is not None
+                if same_place and (previous.document_id, previous.chunk_id) not in sent:
+                    previous.ranks = {"context": 1}
+                    out.append(previous)
+                    sent.add((previous.document_id, previous.chunk_id))
+                    added += 1
+        out.append(hit)
+    return out
+
+
+def _heading_match(facet: str, found: list[SearchHit], asked_docs: set) -> SearchHit | None:
+    """A candidate whose section heading names what the facet asks about ("checklist"), from a
+    document the full question already found (so "required" can't pull in another manual's
+    "Required query parameters")."""
+    words = {_stem(w) for w in content_words(facet) if len(w) >= 4 and not w.isdigit()} - _GENERIC
+    matches = [h for h in found if h.document_id in asked_docs
+               and words & {_stem(w) for w in content_words(h.section or "")}]
+    return matches[0] if matches else None
+
+
+# Too common in headings to say what a part of the question is about.
+_GENERIC = {"required", "require", "requirement", "item", "items", "detail", "details", "rule", "rules",
+            "section", "information", "action", "actions", "step", "steps", "general", "other", "note", "notes"}
+
+
+def _logit(p: float) -> float:
+    p = min(max(p, 1e-6), 1 - 1e-6)
+    return math.log(p / (1 - p))
+
+
+def _stem(word: str) -> str:
+    return word[:-1] if len(word) > 4 and word.endswith("s") else word
+
+
+def _lookalike(hit: SearchHit, idents: list[str]) -> bool:
+    """A passage about SEC-004 when the question asks about SEC-014: same kind of code, other number."""
+    if not idents:
+        return False
+    prefixes = {re.split(r"[-_\d]", i, maxsplit=1)[0] for i in idents}
+    defined = find_identifiers(f"{hit.section or ''}\n{hit.text.lstrip().split(chr(10), 1)[0]}")
+    return any(d not in idents and re.split(r"[-_\d]", d, maxsplit=1)[0] in prefixes for d in defined)
 
 
 def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None, llm: LLMClient,
@@ -216,7 +310,7 @@ def _search_for_gaps(conn: psycopg.Connection, embedder: Embedder, reranker: Rer
     sent = {(h.document_id, h.chunk_id) for h in hits}
     new: list[SearchHit] = []
     for gap in missing_parts(answer):
-        found = retrieve(conn, embedder, gap, workspace_ids, reranker=reranker, year=year, top_k=FACET_K,
+        found = retrieve(conn, embedder, gap, workspace_ids, reranker=reranker, year=year, top_k=2,
                          candidates=CANDIDATES * 3, limit=FUSED_LIMIT * 2)
         new += [h for h in found if h.score >= threshold and (h.document_id, h.chunk_id) not in sent]
     return _unique(new)

@@ -36,8 +36,10 @@ Rules:
 10. Separate what a source states from what you infer. If a conclusion isn't written in the
    sources (for example, whether an earlier step still applies once a later rule is triggered),
    say the sources don't state it, or label it clearly as your inference.
-11. Mention each item once. Never repeat an item, and never add notes about removed duplicates.
-12. Be concise: a short paragraph or a few bullet points."""
+11. Apply a rule only to what its own source says it covers. Never carry a rule written for one
+   item (one domain, device, section or role) over to another, even if they sound alike.
+12. Mention each item once. Never repeat an item, and never add notes about removed duplicates.
+13. Be concise: a short paragraph or a few bullet points."""
 
 
 @dataclass

@@ -174,3 +174,7 @@ def test_items_sharing_a_code_but_saying_different_things_are_kept():
 def test_words_after_the_last_citation_are_checked_against_it():
     answer = "Applications must recognise .quayside names [1] and must cache them."
     assert restore(answer, [RFC[0].text]) == "Applications SHOULD recognise .quayside names [1] and SHOULD cache them."
+
+
+def test_prompt_forbids_carrying_a_rule_to_another_item():
+    assert "Never carry a rule written for one" in SYSTEM_PROMPT
