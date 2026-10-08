@@ -25,19 +25,20 @@ class Reranker(Protocol):
 class FastEmbedReranker:
     """ms-marco-MiniLM-L-6-v2: trained on real search queries + passages that answer them."""
 
-    def __init__(self, model_name: str, cache_dir: str):
+    def __init__(self, model_name: str, cache_dir: str, batch_size: int = 4):
         from fastembed.rerank.cross_encoder import TextCrossEncoder   # imported lazily (tests use fakes)
 
-        self._model = TextCrossEncoder(model_name=model_name, cache_dir=cache_dir)
+        self._model = TextCrossEncoder(model_name=model_name, cache_dir=cache_dir, enable_cpu_mem_arena=False)
+        self.batch_size = batch_size
 
     def score(self, question: str, passages: list[str]) -> list[float]:
-        return [float(s) for s in self._model.rerank(question, passages, batch_size=32)]
+        return [float(s) for s in self._model.rerank(question, passages, batch_size=self.batch_size)]
 
 
 @lru_cache
 def get_reranker() -> Reranker:
     settings = get_settings()
-    return FastEmbedReranker(settings.reranker_model, settings.model_cache_dir)
+    return FastEmbedReranker(settings.reranker_model, settings.model_cache_dir, settings.model_batch_size)
 
 
 def passage_text(hit: SearchHit) -> str:

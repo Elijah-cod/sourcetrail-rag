@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     # Chosen from eval/results.md: answerable questions scored >= 0.69, unanswerable <= 0.13,
     # so 0.3 sits in the gap with a margin on both sides.
     min_relevance: float = 0.3
+    # Passages per model call. Memory grows with the batch: reranking 40 passages at 32 per
+    # batch took the models to 1.3 GB, at 4 per batch to 0.4 GB (with ONNX's memory arena
+    # off, see embed.py), at the same speed. Small batches fit a 512 MB server.
+    model_batch_size: int = 4
 
     # LLM: any OpenAI-compatible chat API. Default: Groq's free tier.
     # Local alternative (Ollama): LLM_BASE_URL=http://localhost:11434/v1  LLM_MODEL=llama3.2

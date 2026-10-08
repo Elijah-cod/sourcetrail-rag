@@ -23,15 +23,16 @@ class Embedder(Protocol):
 class FastEmbedEmbedder:
     """bge-small-en-v1.5 via FastEmbed: small (~70 MB), CPU-only, 384 dimensions."""
 
-    def __init__(self, model_name: str, dim: int, cache_dir: str):
+    def __init__(self, model_name: str, dim: int, cache_dir: str, batch_size: int = 4):
         from fastembed import TextEmbedding   # imported here so tests don't need the model
 
-        self.dim = dim
-        self._model = TextEmbedding(model_name=model_name, cache_dir=cache_dir)
+        self.dim, self.batch_size = dim, batch_size
+        # No memory arena: ONNX would otherwise keep its peak allocation for good (see config).
+        self._model = TextEmbedding(model_name=model_name, cache_dir=cache_dir, enable_cpu_mem_arena=False)
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         # passage_embed = "these are passages to be searched"
-        return [vector.tolist() for vector in self._model.passage_embed(texts, batch_size=32)]
+        return [vector.tolist() for vector in self._model.passage_embed(texts, batch_size=self.batch_size)]
 
     def embed_query(self, text: str) -> list[float]:
         # query_embed = "this is a question"; bge models encode questions slightly differently
@@ -42,4 +43,5 @@ class FastEmbedEmbedder:
 def get_embedder() -> Embedder:
     """Load the model once (first call downloads it, later calls reuse it)."""
     settings = get_settings()
-    return FastEmbedEmbedder(settings.embedding_model, settings.embedding_dim, settings.model_cache_dir)
+    return FastEmbedEmbedder(settings.embedding_model, settings.embedding_dim, settings.model_cache_dir,
+                             settings.model_batch_size)

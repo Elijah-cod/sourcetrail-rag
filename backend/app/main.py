@@ -1,6 +1,8 @@
 """FastAPI entry point."""
 
 import asyncio
+import ctypes
+import ctypes.util
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -56,6 +58,21 @@ app = FastAPI(
 )
 # Every API route lives under /api, leaving "/" free for the web page.
 app.include_router(router, prefix="/api")
+
+
+# Searching and indexing allocate and free a few hundred MB in the model runtime. glibc keeps
+# freed memory for reuse, so the process sat at ~500 MB after a few questions, at the limit
+# of a 512 MB server. Handing it back after each such request keeps it at ~380 MB.
+_libc = ctypes.CDLL(ctypes.util.find_library("c")) if ctypes.util.find_library("c") else None
+_TRIM_AFTER = ("/api/query", "/api/documents")
+
+
+@app.middleware("http")
+async def release_memory(request: Request, call_next):
+    response = await call_next(request)
+    if _libc is not None and hasattr(_libc, "malloc_trim") and request.url.path.startswith(_TRIM_AFTER):
+        _libc.malloc_trim(0)
+    return response
 
 
 @app.exception_handler(RateLimited)
