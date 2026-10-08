@@ -1,0 +1,11 @@
+**/.env
+**/.venv
+**/.cache
+**/__pycache__
+**/.pytest_cache
+frontend/node_modules
+frontend/.next
+frontend/out
+backend/eval/regression/answers.jsonl
+.git
+docs

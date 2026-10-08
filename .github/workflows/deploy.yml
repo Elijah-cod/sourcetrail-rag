@@ -1,0 +1,37 @@
+# Deploys main to a Hugging Face Space (Docker, free CPU tier) after CI passes on it.
+# One-time setup in GitHub > Settings > Secrets and variables > Actions:
+#   secret   HF_TOKEN  a Hugging Face access token with write access
+#   variable HF_SPACE  the Space's id, e.g. "your-name/sourcetrail-rag"
+# The app's own secrets (DATABASE_URL, LLM_API_KEY...) live in the Space's settings.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  space:
+    if: ${{ vars.HF_SPACE != '' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Push this commit to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: |
+          # A Space needs its settings at the top of README.md; ours stays as it is in GitHub.
+          mkdir /tmp/space
+          git archive HEAD | tar -x -C /tmp/space
+          cd /tmp/space
+          { printf -- '---\ntitle: SourceTrail RAG\nemoji: 🔎\ncolorFrom: indigo\ncolorTo: blue\nsdk: docker\napp_port: 8000\npinned: false\n---\n\n'; cat README.md; } > README.space.md
+          mv README.space.md README.md
+          git init -q -b main
+          git add -A
+          git -c user.name="GitHub Actions" -c user.email="actions@github.com" commit -qm "Deploy $(git -C "$GITHUB_WORKSPACE" rev-parse --short HEAD)"
+          git push --force "https://user:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" main

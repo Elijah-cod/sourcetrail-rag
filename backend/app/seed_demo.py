@@ -1,10 +1,13 @@
 """Load the demo collection (backend/demo/sources/) into the shared demo workspace.
 
-    uv run python -m app.seed_demo
+    uv run python -m app.seed_demo               # always re-index
+    uv run python -m app.seed_demo --if-needed   # only if the demo files changed (used at startup)
 
 Safe to re-run: it first removes everything in the demo workspace, then re-indexes
 every file, so the demo always matches the files in the repository.
 """
+
+import sys
 
 from pathlib import Path
 
@@ -32,10 +35,20 @@ def seed(conn: psycopg.Connection, embedder: Embedder, sources: Path = DEMO_SOUR
     return loaded
 
 
+def up_to_date(conn: psycopg.Connection, sources: Path = DEMO_SOURCES) -> bool:
+    """Whether the demo workspace already holds exactly the files in `sources` (by name)."""
+    on_disk = {p.name for p in sources.iterdir() if p.is_file() and not p.name.startswith(".")}
+    stored = {row[0] for row in conn.execute(
+        "SELECT source_uri FROM documents WHERE workspace_id = %s", (DEMO_WORKSPACE_ID,))}
+    return on_disk == stored
+
+
 def main() -> None:
-    embedder = get_embedder()
     with psycopg.connect(get_settings().database_url, autocommit=True) as conn:
-        loaded = seed(conn, embedder)
+        if "--if-needed" in sys.argv and up_to_date(conn):
+            print("Demo collection already up to date.")
+            return
+        loaded = seed(conn, get_embedder())
     for name, chunks in loaded:
         print(f"{chunks:5} chunks  {name}")
     print(f"Demo collection: {len(loaded)} documents, {sum(c for _, c in loaded)} chunks.")

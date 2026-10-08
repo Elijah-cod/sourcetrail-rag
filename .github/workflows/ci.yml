@@ -1,0 +1,54 @@
+# Runs on every push and pull request: backend tests against a real pgvector Postgres,
+# and the frontend lint + static build (which also type-checks).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      db:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: sourcetrail
+          POSTGRES_PASSWORD: sourcetrail
+          POSTGRES_DB: sourcetrail
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sourcetrail"
+          --health-interval 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.32"
+      - name: Cache embedding and reranker models
+        uses: actions/cache@v4
+        with:
+          path: backend/.cache/models
+          key: models-${{ hashFiles('backend/app/config.py') }}
+      - run: uv sync --frozen
+      - run: uv run pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build

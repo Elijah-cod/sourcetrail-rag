@@ -8,7 +8,7 @@ import pytest
 from app.chunking import chunk_document, slugify
 from app.ingest import extract_file
 from app.search import SearchHit
-from app.seed_demo import DEMO_SOURCES, seed
+from app.seed_demo import DEMO_SOURCES, seed, up_to_date
 from app.store import DEMO_WORKSPACE_ID
 from eval.run_eval import (ModeResult, Question, evaluate, first_relevant_rank, is_relevant,
                            load_questions, normalize)
@@ -71,6 +71,10 @@ def test_seed_and_evaluate_end_to_end(db, fake_embedder, fake_reranker, tmp_path
     (tmp_path / "guide.md").write_text("# Guide\n\nThe answer is forty-two.\n")
     loaded = seed(db, fake_embedder, sources=tmp_path)
     assert loaded == [("guide.md", 1)]
+    assert up_to_date(db, tmp_path)
+    (tmp_path / "new.md").write_text("# New\n\nAnother file.\n")
+    assert not up_to_date(db, tmp_path)               # a demo file was added: re-seed at startup
+    (tmp_path / "new.md").unlink()
     # Re-seeding replaces rather than duplicates.
     seed(db, fake_embedder, sources=tmp_path)
     assert db.execute("SELECT count(*) FROM documents WHERE workspace_id = %s",

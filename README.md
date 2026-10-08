@@ -54,9 +54,10 @@ Results are written to `backend/eval/results.md`.
 
 ### Regression benchmark
 
-Six small fixtures (PDF, DOCX, Markdown, Latin-1 TXT, CSV, HTML) with their questions and
-expected results live in `backend/eval/regression/`. Each fixture is indexed into a temporary
-workspace and removed afterwards:
+The fixtures from the October 2026 regression reports (PDF, DOCX, Markdown, Latin-1 TXT, CSV,
+HTML) with their questions and expected results live in `backend/eval/regression/`. Like the
+live app, they are indexed together into one temporary workspace, searched alongside the demo
+collection, and removed afterwards:
 
 ```bash
 cd backend
@@ -66,3 +67,37 @@ uv run python -m eval.regression.run_regression --answers  # also grades the LLM
 
 Results are written to `backend/eval/regression/results.md`. To rebuild the fixtures:
 `uv run --with reportlab python -m eval.regression.make_fixtures`.
+
+The app's **Benchmarks** page shows the latest results of both scripts (they also write
+`results.json` next to `results.md`).
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request: the backend tests against a
+pgvector Postgres (the embedding and reranker models are cached between runs), and the
+frontend lint and static build.
+
+## Deployment
+
+The `Dockerfile` at the repository root builds one image: the static frontend, the backend,
+and both models baked in. At start it applies new migrations, re-indexes the demo collection
+if its files changed, then serves on `$PORT` (default 8000). It needs about 400–500 MB of
+memory and a full CPU or more for comfortable answer times; Render's free plan (512 MB,
+0.1 CPU) is too small.
+
+**Database: Neon (free).** Create a project, then copy its connection string (with
+`?sslmode=require`). The migrations enable `pgvector` themselves.
+
+**App: Hugging Face Spaces (free CPU tier, 2 vCPU, 16 GB).**
+
+1. Create a Space with the **Docker** SDK (blank template).
+2. In the Space's settings, add the secrets `DATABASE_URL` (Neon) and `LLM_API_KEY` (Groq),
+   and the variables `COOKIE_SECURE=true` and `TRUST_FORWARDED_FOR=true`.
+3. In GitHub (Settings > Secrets and variables > Actions), add the secret `HF_TOKEN`
+   (a Hugging Face token with write access) and the variable `HF_SPACE` (`your-name/space-name`).
+
+Every push to `main` that passes CI is then deployed by `.github/workflows/deploy.yml`
+(or run it by hand from the Actions tab). Open the app at its direct address,
+`https://your-name-space-name.hf.space`: inside the huggingface.co page it runs in a frame,
+where browsers block the workspace cookie. A free Space sleeps after 48 hours without
+visitors and wakes on the next visit.
