@@ -126,3 +126,18 @@ def test_passage_pointing_back_brings_the_rule_it_points_to(db, fake_embedder, f
     assert any("handle them as described above" in t for t in texts)
     pointer = next(i for i, t in enumerate(texts) if "handle them as described above" in t)
     assert pointer > 0 and "immediate positive response" in texts[pointer - 1]
+
+
+def test_an_answer_that_only_declines_is_not_found(db, fake_embedder, fake_reranker, workspace_id):
+    """'The passages I was given don't cover the price or the salaries.' is a refusal."""
+    add_report(db, fake_embedder, workspace_id)
+    llm = FakeLLM()
+    llm.reply = "The passages I was given don’t cover the land price or the employee salaries."
+    result = ask(db, fake_embedder, fake_reranker, llm, "Why did revenue decline?", [workspace_id])
+    assert result.status == "not_found"
+    assert "don't cover the land price" in result.answer
+
+
+def test_curly_apostrophe_gap_is_still_searched():
+    from app.qa import missing_parts
+    assert missing_parts("Travel time: the passages don’t cover it.") == ["Travel time: the passages don’t cover it."]

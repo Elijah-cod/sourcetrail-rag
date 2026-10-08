@@ -79,3 +79,13 @@ def test_column_name_far_from_the_aggregate_word_is_not_a_table_question(db, fak
     assert wants_whole_table("How many dimensions can a vector have if I want units?")
     assert whole_table_hits(db, "How many dimensions can a vector have if I want units?", [workspace_id]) == []
     assert whole_table_hits(db, "List every asset in the North zone", [workspace_id])
+
+
+def test_instructions_about_the_answer_are_not_searched_as_parts():
+    """'Preserve accented characters' has nothing to find; searching it made the answer say the
+    passages 'don't cover' it."""
+    parts = split_facets("According to the Mont Rivière log, what are the inspection date and station code? "
+                         "Preserve accented characters.")
+    assert not any("accented" in p for p in parts)
+    assert not any("arithmetic" in p for p in split_facets(
+        "Calculate the total units and the units by zone. Show the arithmetic totals."))

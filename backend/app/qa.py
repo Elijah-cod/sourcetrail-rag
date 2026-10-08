@@ -54,7 +54,7 @@ MAX_SOURCES = 10
 # "The passages I was given don't cover X", "the document does not mention X"... An answer that
 # says part of the question is missing gets one targeted search for that part before it's shown.
 _ABSENCE = re.compile(
-    r"\b(?:do(?:es)?n[o']?t|did ?n[o']?t|do(?:es)? not|did not)\s+(?:cover|mention|include|contain|say|state|specify|"
+    r"\b(?:do(?:es)?n[o'’]?t|did ?n[o'’]?t|do(?:es)? not|did not)\s+(?:cover|mention|include|contain|say|state|specify|"
     r"describe|provide|address|give)\b|\bnot (?:covered|mentioned|included|specified|stated|provided|"
     r"described|addressed)\b|\bno (?:mention|information|details?)\b", re.IGNORECASE)
 MAX_RETRY_QUERIES = 2
@@ -166,13 +166,15 @@ def _add_facet_sources(conn: psycopg.Connection, embedder: Embedder, reranker: R
             # A runner-up the reranker rates about as highly is kept too: "Solace is in Lock Four"
             # matches both the lock schedule and the Copper-alert rule for Solace (0.999 / 0.997).
             best = good[:1] + [h for h in good[1:2] if _logit(good[0].score) - _logit(h.score) <= NEAR_TIE]
-            if best or (found and (found[0].document_id, found[0].chunk_id) in sent):
+            already_sent = bool(found) and (found[0].document_id, found[0].chunk_id) in sent \
+                and _shares_words(facet, found[0])
+            if best or already_sent:
                 break                    # covered, or its best passage is already there (underrated)
             match = _heading_match(facet, found, asked_docs)
             if match:
                 best = [match]
                 break
-        if not best and found and (found[0].document_id, found[0].chunk_id) in sent:
+        if not best and already_sent:
             continue
         if not best:
             uncovered.append(facet)
@@ -188,6 +190,14 @@ def _add_facet_sources(conn: psycopg.Connection, embedder: Embedder, reranker: R
     # The full question's own order first, then what the facets added.
     ordered = [h for h in _unique(hits + required) if (h.document_id, h.chunk_id) in kept]
     return ordered, uncovered
+
+
+def _shares_words(facet: str, hit: SearchHit) -> bool:
+    """Whether a passage mentions any of the facet's words. Without this, a facet nothing matches
+    ("what zebra quota applies") counted as covered whenever its top passage, picked among
+    near-zero scores, happened to be one already sent."""
+    words = {w.strip(".") for w in re.findall(r"[\w.%-]+", f"{hit.section or ''} {hit.text}".lower())}
+    return any(w in words for w in content_words(facet))
 
 
 # A passage that only points back at an earlier rule ("as described above") can't be applied alone.
@@ -292,9 +302,16 @@ def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None,
                 pass                       # keep the first answer (its citations still match)
             timings["gap_answer_ms"] = (time.perf_counter() - started) * 1000
 
-    status: Status = "not_found" if text.strip() == NOT_FOUND else "answered"
+    status: Status = "not_found" if text.strip() == NOT_FOUND or _only_declines(text, citations) else "answered"
     return Answer(status=status, answer=text, citations=citations, sources=hits,
                   filters=parsed.filters, timings=timings)
+
+
+def _only_declines(answer: str, citations: list) -> bool:
+    """'The passages I was given don't cover the purchase price or the salaries.' (and nothing
+    else, no citations) is a refusal in other words: report it as not found."""
+    sentences = [s for s in re.split(r"(?<=[.!?])\s+|\n+", answer) if s.strip()]
+    return not citations and bool(sentences) and all(_ABSENCE.search(s) for s in sentences)
 
 
 def missing_parts(answer: str) -> list[str]:

@@ -97,7 +97,9 @@ _LEFTOVER_MARKER = re.compile(r"【[^】]*】")
 # gpt-oss writes codes with non-breaking hyphens ("AQ‑POLAR‑73", U+2011) and puts narrow
 # no-break spaces in "30 %" and "SHOULD NOT". They look right but break copy-paste, search and
 # our own checks (a requirement word split by U+202F isn't recognised), so they become plain.
-_TYPOGRAPHY = str.maketrans({"\u2010": "-", "\u2011": "-", "\u2012": "-", "\u00a0": " ", "\u202f": " ",
+# Same for its curly apostrophe: "don’t cover" slipped past the "don't cover" gap check.
+_TYPOGRAPHY = str.maketrans({"\u2019": "'", "\u2010": "-", "\u2011": "-", "\u2012": "-",
+                             "\u00a0": " ", "\u202f": " ",
                              "\u2007": " ", "\u2009": " ", "\u200a": " ", "\u200b": ""})
 
 

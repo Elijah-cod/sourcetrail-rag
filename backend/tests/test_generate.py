@@ -191,3 +191,8 @@ def test_requirement_word_with_a_narrow_space_is_still_checked():
     llm = ScriptedLLM("Applications must not treat .sample names specially [2].", LLMUnavailable("quota"))
     text, _ = generate_answer(llm, "q", RFC)
     assert text == "Applications SHOULD NOT treat .sample names specially [1]."
+
+
+def test_model_typography_becomes_plain():
+    from app.generate import normalize_typography
+    assert normalize_typography("AQ‑POLAR‑73 at 30 % — don’t") == "AQ-POLAR-73 at 30 % — don't"

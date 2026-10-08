@@ -8,7 +8,9 @@ each part is searched on its own, and the best passage for every part is kept.
 
 Splitting is rule-based (no extra LLM call): at sentence ends, semicolons, commas and joining
 words like "and", "while", "but". Parts with fewer than two content words ("It is Monday") are
-not searched alone; they stay in the full-question search.
+not searched alone; they stay in the full-question search. Neither are instructions about the
+answer itself ("Preserve accented characters", "Show the arithmetic"): there is nothing to find
+for them, and searching them only made the answer report them as "not covered".
 """
 
 import re
@@ -32,6 +34,11 @@ _SPLIT = re.compile(
     r"and also|also)\s+",
     re.IGNORECASE)
 
+# A part that tells the model how to answer rather than asking about the documents.
+_INSTRUCTION = re.compile(
+    r"^(?:please\s+)?(?:preserve|keep|format|respond|reply|cite|quote|write|be|answer (?:in|with|briefly)|"
+    r"show (?:the |your |all )?(?:work|working|arithmetic|calculations?|steps|sums|totals))\b", re.IGNORECASE)
+
 
 def content_words(text: str) -> list[str]:
     return [w for w in re.findall(r"[\w.%-]+", text.lower()) if len(w) >= 3 and w not in _FILLER]
@@ -44,7 +51,7 @@ def split_facets(question: str) -> list[str]:
         -> ["What is the daily schedule", "what is on the opening checklist"]
     """
     parts = [p.strip(" ,.;:?!") for p in _SPLIT.split(question)]
-    parts = [p for p in parts if len(content_words(p)) >= MIN_CONTENT_WORDS]
+    parts = [p for p in parts if len(content_words(p)) >= MIN_CONTENT_WORDS and not _INSTRUCTION.match(p)]
     # Drop repeats ("What should X do" twice) but keep the order.
     unique: list[str] = []
     for part in parts:
