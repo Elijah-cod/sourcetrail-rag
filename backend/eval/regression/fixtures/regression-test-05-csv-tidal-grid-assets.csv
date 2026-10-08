@@ -1,0 +1,11 @@
+asset_id,zone,category,units,inspection_date,status,action_code,note
+TG-201,North Shoal,Battery,48,2026-09-12,Ready,KEEP,"Stable output, no intervention"
+TG-202,East Channel,Inverter,35,2026-08-28,Overdue,CAL-7,"Calibrate phase A, then phase C"
+TG-203,South Reach,Battery,64,2026-10-02,Ready,KEEP,Reserve bank for night operations
+TG-204,West Basin,Sensor,18,2026-07-19,Overdue,SEAL-4,"Replace gasket, verify salt ingress"
+TG-205,North Shoal,Inverter,42,2026-09-30,Watch,THERM-2,Thermal drift at 63 C
+TG-206,East Channel,Sensor,27,2026-10-05,Ready,KEEP,Telemetry verified
+TG-207,South Reach,Turbine,81,2026-08-11,Overdue,BRG-9,"Inspect bearing two, retain lubricant sample"
+TG-208,West Basin,Turbine,72,2026-09-25,Watch,VIB-3,Vibration trend rising
+TG-209,North Shoal,Sensor,22,2026-10-01,Ready,KEEP,Beacon pair synchronized
+TG-210,East Channel,Battery,55,2026-06-22,Overdue,CELL-6,"Isolate rack 6, notify Mara Venn"

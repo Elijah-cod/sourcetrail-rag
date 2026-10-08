@@ -1,9 +1,12 @@
 """Regenerate the regression fixtures in eval/regression/fixtures/: one small document per source
-type, rebuilt from the 8 October 2026 regression report (Aurora Quay PDF, Sable Ridge DOCX,
+type, rebuilt from the 8 October 2026 regression report before the real fixtures were available (Aurora Quay PDF, Sable Ridge DOCX,
 Ember Canal Markdown, Mont Rivière Latin-1 TXT, Tidal Grid CSV, plus an HTML standards page).
 
 Each one is padded with unrelated sections, so a question needing three distant sections can't
 be answered by the top few passages alone, which is how the report's failures happened.
+
+The real fixtures used in the live browser test (regression-test-0*.*) sit next to these and
+aren't generated here.
 
 Run with:  uv run --with reportlab python -m eval.regression.make_fixtures
 """
@@ -294,8 +297,9 @@ def main() -> None:
     (OUT / "mont_riviere.txt").write_bytes(MONT_RIVIERE.encode("latin-1"))
     buffer = io.StringIO()
     csv.writer(buffer, lineterminator="\n").writerows(TIDAL_GRID)
-    (OUT / "tidal_grid.csv").write_text(buffer.getvalue(), encoding="utf-8")
-    # The headerless copy must be rejected at upload.
+    # Only a headerless copy, which must be rejected at upload. The CSV questions use the real
+    # fixture from the live test (regression-test-05-csv-tidal-grid-assets.csv); a second
+    # "tidal grid" with the same codes would make them ambiguous.
     (OUT / "tidal_grid_headerless.csv").write_text(buffer.getvalue().split("\n", 1)[1], encoding="utf-8")
     (OUT / "harbour_names.html").write_text(HARBOUR_NAMES, encoding="utf-8")
     for path in sorted(OUT.iterdir()):

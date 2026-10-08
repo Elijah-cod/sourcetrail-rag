@@ -1,0 +1,43 @@
+MONT RIVIÈRE AERIAL STATION LOG
+
+Revision: 4.9
+Supervisor: Maëlle Girard
+Inspection date: 7 August 2049
+Station code: MR-AIR-518
+
+FLIGHT SCHEDULE
+
+The survey balloon Éclat launches at 05:40 every Wednesday and Sunday from Platform Côte-Nord. A standard ascent lasts 65 minutes. The launch authorization phrase is Brume Claire.
+
+PRELAUNCH CHECKLIST
+
+1. Confirm envelope pressure is 102 kilopascals.
+2. Test beacon Lumière-5 for four pulses.
+3. Secure sample crate Vézin-2.
+4. Record the crew count in ledger Noël-14.
+
+HELIUM ALLOCATION
+
+The station receives 640 cubic metres of helium each month. Research flights receive 50 percent, weather patrols receive 30 percent, and the emergency reserve receives 20 percent.
+
+Reorder helium only when the reserve falls below 96 cubic metres. A low-pressure warning by itself does not trigger a helium reorder.
+
+AMBER WIND WARNING
+
+When wind exceeds 58 kilometres per hour, cancel the next balloon launch, move the Éclat basket into Hangar Trois, and announce code AIGLE DORÉ on radio channel Nuage-7.
+
+If the hangar door is open during an Amber warning, close it with key 42 before moving the basket. Do not activate the lightning mast unless lightning is also detected.
+
+LIGHTNING RESPONSE
+
+When lightning is detected within 18 kilometres, activate mast Foudre-3 and disconnect the balloon tether controller. This rule applies whether or not an Amber wind warning is active.
+
+If lightning and an Amber warning occur together, first cancel the launch, then close the hangar door with key 42, move the Éclat basket into Hangar Trois, activate mast Foudre-3, disconnect the tether controller, and announce AIGLE DORÉ on Nuage-7.
+
+COMMAND SUCCESSION
+
+If Maëlle Girard is unavailable, engineer Lucien Rêve assumes command. If both Maëlle and Lucien are unavailable, radio operator Anaïs Bérard assumes command.
+
+MEDICAL SUPPLIES
+
+The emergency cabinet contains 16 thermal blankets, 10 oxygen masks, and 4 trauma kits. During a cold-exposure incident, issue thermal blankets before oxygen masks. A trauma kit is opened only after medic Zoë Martin authorizes it.
