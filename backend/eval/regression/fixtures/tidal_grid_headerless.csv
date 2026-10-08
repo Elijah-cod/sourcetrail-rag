@@ -1,0 +1,10 @@
+TG-101,Buoy,North,48,2026-03-02,Ready,A1,Repainted
+TG-102,Buoy,North,52,2026-01-15,Overdue,C3,"Light flickers, check battery"
+TG-201,Sensor,East,30,2026-05-20,Ready,A1,
+TG-202,Sensor,East,36,2025-11-30,Overdue,C3,"Cable chafed, replace by spring"
+TG-203,Sensor,East,28,2026-06-11,Ready,B2,Firmware 4.2
+TG-301,Turbine,South,90,2026-02-27,Overdue,D4,"Blade pitch fault, crane needed"
+TG-302,Turbine,South,84,2026-04-08,Ready,A1,
+TG-401,Cable,West,40,2026-07-01,Ready,B2,"Spliced, monitored"
+TG-402,Cable,West,32,2025-12-19,Overdue,C3,Insulation test failed
+TG-403,Cable,West,24,2026-08-15,Maintenance,B2,"Joint box, East side"

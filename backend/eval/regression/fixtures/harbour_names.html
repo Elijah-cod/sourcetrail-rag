@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><title>HT-NAMES: Reserved Names for Harbour Telemetry</title>
+<meta name="author" content="Harbour Telemetry Working Group"></head>
+<body><nav><a href="/">Home</a> | <a href="/profiles">Profiles</a></nav>
+<main><article>
+<h1>HT-NAMES: Reserved Names for Harbour Telemetry</h1>
+<p>Published 2026-05-04 by the Harbour Telemetry Working Group.</p>
+<h2>1. Requirements language</h2>
+<p>The key words "MUST", "MUST NOT", "REQUIRED", "SHOULD", "SHOULD NOT" and "MAY" in this
+profile are to be interpreted as described in RFC 2119.</p>
+<h2>2. Purpose</h2>
+<p>Telemetry devices on a harbour network need device names that can never collide with real
+names. This profile reserves two name suffixes, .quayside and .sample, and says how software
+treats each one.</p>
+<h2>3. The .quayside suffix</h2>
+<p>Names ending in .quayside always refer to a device on the local harbour segment.</p>
+<p>Applications SHOULD recognise .quayside names and SHOULD resolve them to the local segment
+without asking a public name server. Name resolution libraries MUST NOT forward .quayside
+queries to the public DNS. Gateways MAY cache .quayside answers for up to 60 seconds.</p>
+<h2>4. The .sample suffix</h2>
+<p>Names ending in .sample are for documentation and examples only.</p>
+<p>Authors MAY use .sample names freely in manuals. Applications SHOULD NOT treat .sample names
+specially. Name servers SHOULD NOT answer queries for .sample names with real addresses.</p>
+<h2>5. Logging</h2>
+<p>Devices MUST log every name lookup that fails. Logs SHOULD be kept for 30 days.</p>
+<h2>6. Security considerations</h2>
+<p>Because .quayside names are local, an attacker on the segment can impersonate a device.
+Operators SHOULD use authenticated telemetry where possible.</p>
+<h2>7. Registry</h2>
+<p>The working group keeps the list of reserved suffixes. New suffixes REQUIRE a published profile.</p>
+</article></main>
+<footer>Harbour Telemetry Working Group</footer></body></html>

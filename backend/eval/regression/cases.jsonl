@@ -1,0 +1,38 @@
+{"id": "pdf-ingest", "kind": "ingest", "fixture": "aurora_quay.pdf", "title": "Aurora Quay Berth Allocation Plan 2026"}
+{"id": "pdf-allocation", "fixture": "aurora_quay.pdf", "question": "How many berth-hours a week do passenger ferries get?", "facets": [["Passenger ferries: 480"]], "facts": ["480"]}
+{"id": "pdf-percent", "fixture": "aurora_quay.pdf", "question": "What percentage of the weekly berth-hours goes to the fishing fleet?", "facets": [["Fishing fleet: 360"]], "facts": ["30%"]}
+{"id": "pdf-cross-page", "fixture": "aurora_quay.pdf", "question": "Which berth do cargo coasters use, and what do quay staff do if fire is reported on a moored vessel?", "facets": [["Cargo coasters use Berth 4"], ["quay siren"]], "facts": ["Berth 4", "siren"]}
+{"id": "pdf-refuse", "fixture": "aurora_quay.pdf", "question": "Who is the harbour master of Aurora Quay?", "answerable": false}
+{"id": "docx-ingest", "kind": "ingest", "fixture": "sable_ridge.docx", "title": "Sable Ridge Tunnel Gas Safety Procedure"}
+{"id": "docx-table", "fixture": "sable_ridge.docx", "question": "What is the evacuation level for carbon monoxide?", "facets": [["Carbon monoxide"]], "facts": ["100 ppm"]}
+{"id": "docx-header", "fixture": "sable_ridge.docx", "question": "What does the page header of the gas safety procedure say?", "facets": [["Controlled copy"]], "facts": ["Controlled copy"]}
+{"id": "docx-footer", "fixture": "sable_ridge.docx", "question": "When is the next review of the gas safety procedure due?", "facets": [["March 2027"]], "facts": ["March 2027"]}
+{"id": "docx-list", "fixture": "sable_ridge.docx", "question": "Who records the gas readings?", "facets": [["records every reading"]], "facts": ["shift supervisor"]}
+{"id": "docx-conditional", "fixture": "sable_ridge.docx", "question": "Methane reads 1.6% at the face. What must the crew do, and is the five-minute repeat measurement still required?", "facets": [["1.5% or more"], ["after five minutes"]], "facts": ["evacuate"], "forbidden": ["no longer required", "not required", "is waived"]}
+{"id": "docx-reentry", "fixture": "sable_ridge.docx", "question": "When can workers re-enter the face after an evacuation?", "facets": [["two consecutive readings"]], "facts": ["ten minutes"]}
+{"id": "docx-refuse", "fixture": "sable_ridge.docx", "question": "How deep is the Sable Ridge tunnel?", "answerable": false}
+{"id": "md-ingest", "kind": "ingest", "fixture": "ember_canal.md", "title": "Ember Canal Lock Operations Guide"}
+{"id": "md-table", "fixture": "ember_canal.md", "question": "How long is Heron Lock?", "facets": [["26.5"]], "facts": ["26.5"]}
+{"id": "md-code", "fixture": "ember_canal.md", "question": "What is the telemetry report interval for Heron Lock?", "facets": [["report_interval_s = 300"]], "facts": ["300"]}
+{"id": "md-compound", "fixture": "ember_canal.md", "question": "During a water conservation order, the Heron back-pump fails and an amber alert is raised while a barge is inside the lock chamber. What should the lock keeper do?", "facets": [["12 cycles"], ["standby pump"], ["amber alert means"], ["two lines fore"]], "facts": ["standby pump", "two lines"], "forbidden": ["not in the document", "doesn't mention", "does not mention", "not covered"]}
+{"id": "md-isolated", "fixture": "ember_canal.md", "question": "What should a lock keeper do if a barge is in the chamber when an alert is raised?", "facets": [["two lines fore"]], "facts": ["gates closed"]}
+{"id": "md-calc", "fixture": "ember_canal.md", "question": "How much deeper is the rise at Heron Lock than at Lock 6?", "facets": [["3.8"]], "facts": ["1.9"]}
+{"id": "md-refuse", "fixture": "ember_canal.md", "question": "Who designed the Ember Canal?", "answerable": false}
+{"id": "txt-ingest", "kind": "ingest", "fixture": "mont_riviere.txt", "title": "Mont Rivière Upper-Air Station", "contains": ["Hélène Côté"]}
+{"id": "txt-accents", "fixture": "mont_riviere.txt", "question": "Who is the station chief at Mont Rivière?", "facets": [["Hélène Côté"]], "facts": ["Hélène Côté"]}
+{"id": "txt-compound", "fixture": "mont_riviere.txt", "question": "What is the daily observation schedule at Mont Rivière, and what is on the opening checklist?", "facets": [["launched at 06:00 and 18:00"], ["Read the barometer"]], "facts": ["06:00", "barometer"], "forbidden": ["not in the document", "doesn't mention", "does not mention", "not covered"]}
+{"id": "txt-checklist", "fixture": "mont_riviere.txt", "question": "What is on the opening checklist?", "facets": [["Read the barometer"]], "facts": ["barometer"]}
+{"id": "txt-conditional", "fixture": "mont_riviere.txt", "question": "It is Monday, no lightning has been detected, and the helium reserve reads 128 cubic metres. Should the observer suspend the 18:00 launch or reorder helium?", "facets": [["Do not reorder helium"], ["lightning is detected within 15 km"]], "facts": ["128"], "forbidden": ["place an order"]}
+{"id": "txt-calc", "fixture": "mont_riviere.txt", "question": "How many hours apart are the two radiosonde launches?", "facets": [["launched at 06:00 and 18:00"]], "facts": ["12"]}
+{"id": "txt-refuse", "fixture": "mont_riviere.txt", "question": "What is the station's annual budget?", "answerable": false}
+{"id": "csv-ingest", "kind": "ingest", "fixture": "tidal_grid.csv", "title": "tidal grid"}
+{"id": "csv-reject", "kind": "ingest", "fixture": "tidal_grid_headerless.csv", "reject": "header row"}
+{"id": "csv-row", "fixture": "tidal_grid.csv", "question": "Give every field for asset TG-301.", "facets": [["TG-301"]], "facts": ["Blade pitch fault, crane needed"]}
+{"id": "csv-overdue", "fixture": "tidal_grid.csv", "question": "Which assets are overdue?", "facets": [["TG-102"], ["TG-202"], ["TG-301"], ["TG-402"]], "facts": ["TG-102", "TG-202", "TG-301", "TG-402"], "no_duplicates": ["TG-202", "TG-102", "TG-301", "TG-402"]}
+{"id": "csv-total", "fixture": "tidal_grid.csv", "question": "What is the total number of units across all assets?", "facets": [["TG-101"], ["TG-403"]], "facts": ["464"]}
+{"id": "csv-refuse", "fixture": "tidal_grid.csv", "question": "What is the purchase price of TG-201?", "answerable": false}
+{"id": "html-ingest", "kind": "ingest", "fixture": "harbour_names.html", "title": "HT-NAMES: Reserved Names for Harbour Telemetry"}
+{"id": "html-focused", "fixture": "harbour_names.html", "question": "How long may gateways cache .quayside answers?", "facets": [["60 seconds"]], "facts": ["60 seconds"]}
+{"id": "html-compare", "fixture": "harbour_names.html", "question": "Compare how applications and name servers should handle .quayside names and .sample names.", "facets": [["Applications SHOULD recognise"], ["Applications SHOULD NOT treat"]], "exact_words": ["SHOULD", "SHOULD NOT", "MUST NOT"]}
+{"id": "html-modal-words", "fixture": "harbour_names.html", "question": "Which exact RFC 2119 keywords does HT-NAMES use for .sample names?", "facets": [["Applications SHOULD NOT treat"]], "exact_words": ["MAY", "SHOULD NOT"]}
+{"id": "html-refuse", "fixture": "harbour_names.html", "question": "What salary does the working group chair earn?", "answerable": false}

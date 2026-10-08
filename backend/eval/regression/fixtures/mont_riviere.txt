@@ -1,0 +1,50 @@
+MONT RIVIÈRE UPPER-AIR STATION
+
+The Mont Rivière station sits at 1,840 m above the village of Saint-Clément-sur-Arve. It launches
+radiosonde balloons and reports to the regional forecasting centre in Annecy.
+
+DAILY OBSERVATION SCHEDULE
+
+Surface observations are taken every hour from 05:00 to 21:00.
+Radiosonde balloons are launched at 06:00 and 18:00 local time.
+The data summary is sent to Annecy at 07:30 and 19:30.
+
+STAFF
+
+The station chief is Hélène Côté. Observers are Gérard Lefèvre and Zoë Bréhaut.
+One observer is on duty at all times; the chief covers weekends in rotation.
+
+ROAD ACCESS
+
+The station is reached by the Combe-à-l'Âne forest road, which is closed to private cars.
+In snow, use the tracked vehicle kept in the lower garage.
+
+WINTER OPERATIONS
+
+From December to March the access road is ploughed by the commune at 06:00.
+Spare batteries for the anemometer are kept in the heated store.
+
+OPENING CHECKLIST
+
+1. Read the barometer and log the pressure.
+2. Check the hydrogen-free status of the launch shed.
+3. Inspect the radiosonde battery and the ground receiver.
+4. Confirm the satellite link to Annecy.
+
+DATA TRANSMISSION
+
+Messages are sent in the WMO TEMP format. If the satellite link fails, use the backup telephone line.
+
+LIGHTNING PROTOCOL
+
+If lightning is detected within 15 km, suspend balloon launches, disconnect the antenna mast,
+and keep all staff inside until 30 minutes after the last strike.
+
+HELIUM RESERVE
+
+The helium reserve is read every Monday. Do not reorder helium while the reserve is 128 cubic
+metres or more; below 128 cubic metres, place an order with the supplier in Grenoble.
+
+VISITORS
+
+School groups may visit on Wednesdays by appointment. Visitors must not enter the launch shed.

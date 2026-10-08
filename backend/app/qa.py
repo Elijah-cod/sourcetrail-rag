@@ -18,7 +18,7 @@ from app.generate import NOT_FOUND, Citation, generate_answer
 from app.identifiers import (MAX_FOLLOWED, boundary, exact_matches, find_identifiers, is_document_code,
                              references, wants_reference_followed)
 from app.llm import LLMClient, LLMUnavailable
-from app.query import parse_query
+from app.query import ParsedQuery, parse_query
 from app.rerank import TOP_K, Reranker, rerank
 from app.retrieve import Mode, retrieve
 from app.search import SearchHit
@@ -41,9 +41,21 @@ NOISE_FLOOR = 0.05      # reranker probability below which a passage is never us
 RELATIVE_CUTOFF = 0.2   # ...and anything under 20% of the best passage's score is dropped
 
 
-def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None, llm: LLMClient,
-        question: str, workspace_ids: list[UUID], mode: Mode = "hybrid_rerank",
-        min_relevance: float | None = None, top_k: int = TOP_K) -> Answer:
+@dataclass
+class Sources:
+    """What retrieval found for a question, before any LLM call."""
+
+    hits: list[SearchHit]
+    parsed: ParsedQuery
+    timings: dict
+    exact: list[SearchHit] = field(default_factory=list)
+    final: Answer | None = None          # set when retrieval alone settles the answer
+
+
+def gather_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None, question: str,
+                   workspace_ids: list[UUID], mode: Mode = "hybrid_rerank", min_relevance: float | None = None,
+                   top_k: int = TOP_K) -> Sources:
+    """Retrieve the passages the LLM will be given (the eval scores this step on its own)."""
     parsed = parse_query(question)
     timings: dict[str, float] = {}
     hits = retrieve(conn, embedder, parsed.text, workspace_ids, mode=mode, reranker=reranker,
@@ -63,8 +75,9 @@ def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None,
         missing = [i for i in idents if not any(_mentions(h, i) for h in exact)]
         if missing and len(missing) == len(idents) and all(is_document_code(i) for i in idents):
             # Certain, not a search miss: no document contains this code at all.
-            return Answer(status="not_found", answer=f"None of the documents mention {', '.join(missing)}.",
-                          filters=parsed.filters, timings=timings)
+            return Sources([], parsed, timings, final=Answer(
+                status="not_found", answer=f"None of the documents mention {', '.join(missing)}.",
+                filters=parsed.filters, timings=timings))
         if exact:
             hits = _prefer_exact(conn, reranker if mode == "hybrid_rerank" else None, parsed.text, question,
                                  idents, exact, hits, workspace_ids, top_k)
@@ -75,8 +88,18 @@ def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None,
     # An exact identifier match is relevant by definition, whatever the reranker thinks.
     threshold = get_settings().min_relevance if min_relevance is None else min_relevance
     if not hits or (not exact and mode == "hybrid_rerank" and hits[0].score < threshold):
-        return Answer(status="not_found", answer=NOT_FOUND, sources=hits, filters=parsed.filters,
-                      timings=timings)
+        return Sources(hits, parsed, timings, exact, final=Answer(
+            status="not_found", answer=NOT_FOUND, sources=hits, filters=parsed.filters, timings=timings))
+    return Sources(hits, parsed, timings, exact)
+
+
+def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None, llm: LLMClient,
+        question: str, workspace_ids: list[UUID], mode: Mode = "hybrid_rerank",
+        min_relevance: float | None = None, top_k: int = TOP_K) -> Answer:
+    found = gather_sources(conn, embedder, reranker, question, workspace_ids, mode, min_relevance, top_k)
+    if found.final is not None:
+        return found.final
+    hits, parsed, timings = found.hits, found.parsed, found.timings
 
     started = time.perf_counter()
     try:
