@@ -3,8 +3,9 @@
     uv run python -m eval.regression.run_regression            # retrieval only (no LLM calls)
     uv run python -m eval.regression.run_regression --answers  # also grade answers (uses the LLM quota)
 
-Each fixture is indexed into its own temporary workspace with the real embedding and reranker
-models, and removed afterwards. Per question (see cases.jsonl) it measures:
+All fixtures are indexed into one temporary workspace with the real embedding and reranker
+models and searched together with the demo collection, as the live app does; the workspace is
+removed afterwards. Per question (see cases.jsonl) it measures:
 
 - facet coverage: every part of the question ("facets") must have a passage containing one of
   its phrases among the sources handed to the LLM. Compound questions fail here first;
@@ -33,6 +34,8 @@ from app.ingest.models import ExtractionError
 from app.ingest.web import extract_html
 from app.qa import ask, gather_sources
 from app.rerank import get_reranker
+from app.seed_demo import seed
+from app.store import DEMO_WORKSPACE_ID
 
 HERE = Path(__file__).parent
 FIXTURES = HERE / "fixtures"
@@ -126,23 +129,29 @@ def run(with_answers: bool = False) -> str:
             ok, detail = check_ingest(case)
             ingest_rows.append((case, ok, detail))
 
-        for fixture in dict.fromkeys(c.fixture for c in cases if c.kind == "question"):
-            workspace = conn.execute("INSERT INTO workspaces DEFAULT VALUES RETURNING id").fetchone()[0]
-            try:
+        # Like the live app: every fixture in one workspace, searched together with the demo
+        # collection. Per-fixture workspaces hid competition between documents (the 8 Oct live
+        # check failed questions this benchmark passed that way).
+        if not conn.execute("SELECT 1 FROM documents WHERE workspace_id = %s LIMIT 1", (DEMO_WORKSPACE_ID,)).fetchone():
+            seed(conn, embedder)
+        workspace = conn.execute("INSERT INTO workspaces DEFAULT VALUES RETURNING id").fetchone()[0]
+        searched = [workspace, DEMO_WORKSPACE_ID]
+        try:
+            for fixture in dict.fromkeys(c.fixture for c in cases if c.kind == "question"):
                 index_document(conn, embedder, workspace, extract(fixture), source_uri=fixture)
-                for case in (c for c in cases if c.kind == "question" and c.fixture == fixture):
-                    started = time.perf_counter()
-                    found = gather_sources(conn, embedder, reranker, case.question, [workspace])
-                    ms = (time.perf_counter() - started) * 1000
-                    sent = [] if found.final is not None else found.hits
-                    texts = [norm(f"{h.section or ''}\n{h.text}") for h in sent]
-                    got = sum(covered(f, texts) for f in case.facets)
-                    answer_problems = None
-                    if llm is not None:
-                        answer_problems = grade_answer(case, ask(conn, embedder, reranker, llm, case.question, [workspace]))
-                    rows.append((case, got, len(sent), ms, answer_problems))
-            finally:
-                conn.execute("DELETE FROM workspaces WHERE id = %s", (workspace,))
+            for case in (c for c in cases if c.kind == "question"):
+                started = time.perf_counter()
+                found = gather_sources(conn, embedder, reranker, case.question, searched)
+                ms = (time.perf_counter() - started) * 1000
+                sent = [] if found.final is not None else found.hits
+                texts = [norm(f"{h.section or ''}\n{h.text}") for h in sent if h.source_uri == case.fixture]
+                got = sum(covered(f, texts) for f in case.facets)
+                answer_problems = None
+                if llm is not None:
+                    answer_problems = grade_answer(case, ask(conn, embedder, reranker, llm, case.question, searched))
+                rows.append((case, got, len(sent), ms, answer_problems))
+        finally:
+            conn.execute("DELETE FROM workspaces WHERE id = %s", (workspace,))
 
     report = format_report(ingest_rows, rows, with_answers)
     (HERE / "results.md").write_text(report)
