@@ -113,7 +113,8 @@ _TYPOGRAPHY = str.maketrans({"\u2019": "'", "\u2010": "-", "\u2011": "-", "\u201
 
 
 def normalize_typography(answer: str) -> str:
-    return answer.translate(_TYPOGRAPHY)
+    # "30 %" -> "30%": the model's French-style spacing; English sources write it without one.
+    return re.sub(r"(?<=\d)[ \u00a0\u202f]%", "%", answer).translate(_TYPOGRAPHY)
 
 
 def normalize_citations(answer: str) -> str:

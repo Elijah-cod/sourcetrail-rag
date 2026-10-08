@@ -184,7 +184,7 @@ def test_non_breaking_hyphens_and_narrow_spaces_become_plain():
     """Benchmark run, 8 Oct 2026: 'AQ‑POLAR‑73' and 'SHOULD NOT' failed every exact check."""
     llm = ScriptedLLM("The identifier is AQ‑POLAR‑73 and it is 30 % [1].")
     text, _ = generate_answer(llm, "q", [_replace(hit(0), text="AQ-POLAR-73 covers 30 % of runs.")])
-    assert text == "The identifier is AQ-POLAR-73 and it is 30 % [1]."
+    assert text == "The identifier is AQ-POLAR-73 and it is 30% [1]."
 
 
 def test_requirement_word_with_a_narrow_space_is_still_checked():
@@ -195,7 +195,7 @@ def test_requirement_word_with_a_narrow_space_is_still_checked():
 
 def test_model_typography_becomes_plain():
     from app.generate import normalize_typography
-    assert normalize_typography("AQ‑POLAR‑73 at 30 % — don’t") == "AQ-POLAR-73 at 30 % — don't"
+    assert normalize_typography("AQ‑POLAR‑73 at 30 % — don’t") == "AQ-POLAR-73 at 30% — don't"
 
 
 # ---------- citation check (app/verify.py) ----------
