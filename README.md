@@ -25,6 +25,7 @@ uv run pytest -m "not integration"   # just the fast tests that need no services
 ```
 
 Design spec: [docs/superpowers/specs/2026-10-02-sourcetrail-rag-design.md](docs/superpowers/specs/2026-10-02-sourcetrail-rag-design.md)
+UI rules (colour tokens, type, touch targets, accessibility): [DESIGN.md](DESIGN.md)
 
 ## Choosing an LLM model
 
