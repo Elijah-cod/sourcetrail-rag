@@ -24,14 +24,26 @@ type Props = { settings: Settings; onChange: (settings: Settings) => void };
 export function SettingsPopover({ settings, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const firstField = useRef<HTMLSelectElement>(null);
 
-  // Close when clicking outside the popover or pressing Escape.
+  // Closing from inside (Escape or the X) puts focus back on the button; a click elsewhere
+  // leaves it where the click put it.
+  const closeToTrigger = () => {
+    setOpen(false);
+    trigger.current?.focus();
+  };
+
+  // On open, focus the first setting. Close when clicking outside the popover or pressing Escape.
   useEffect(() => {
     if (!open) return;
+    firstField.current?.focus();
     const onClick = (e: MouseEvent) => {
       if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeToTrigger();
+    };
     document.addEventListener("mousedown", onClick);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -41,10 +53,13 @@ export function SettingsPopover({ settings, onChange }: Props) {
   }, [open]);
 
   return (
-    <div className="relative" ref={box}>
+    // Phones: the panel is placed against the whole question box (not this button) so it fits on screen.
+    <div className="sm:relative" ref={box}>
       <button
+        ref={trigger}
         type="button"
         onClick={() => setOpen((o) => !o)}
+        aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls="retrieval-settings"
         // Below sm only the icons are visible, so the name has to come from here.
@@ -56,16 +71,17 @@ export function SettingsPopover({ settings, onChange }: Props) {
         <ChevronDown className="h-3.5 w-3.5 text-indigo-500" aria-hidden />
       </button>
       {open && (
-        <div id="retrieval-settings" className="absolute bottom-12 left-0 z-50 flex w-[17rem] flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+        <div id="retrieval-settings" role="dialog" aria-labelledby="retrieval-settings-title" className="absolute inset-x-0 bottom-full z-50 mb-2 flex flex-col gap-3 sm:inset-x-auto sm:bottom-12 sm:left-0 sm:mb-0 sm:w-[17rem] rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
           <div className="flex items-center justify-between border-b border-slate-100 pb-1 text-xs font-bold text-slate-800">
-            Retrieval settings
-            <button type="button" onClick={() => setOpen(false)} className="-my-2 -mr-2 flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close settings">
+            <h2 id="retrieval-settings-title">Retrieval settings</h2>
+            <button type="button" onClick={closeToTrigger} className="-my-2 -mr-2 flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close settings">
               <X className="h-4 w-4" />
             </button>
           </div>
           <label className="flex flex-col gap-1">
             <span className="text-[11px] font-medium text-slate-500">Search mode</span>
             <select
+              ref={firstField}
               value={settings.mode}
               onChange={(e) => onChange({ ...settings, mode: e.target.value as Mode })}
               className="h-10 rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none"
