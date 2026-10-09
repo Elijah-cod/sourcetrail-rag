@@ -1,5 +1,8 @@
+"use client";
+
 import { BarChart3, FileText, MessageSquare, Plus, X } from "lucide-react";
 import type { ReactNode } from "react";
+import { useModalDrawer } from "@/hooks/useModalDrawer";
 
 export type View = "chat" | "documents" | "benchmarks";
 
@@ -17,6 +20,7 @@ type Props = {
 
 export function Sidebar(props: Props) {
   const { view, onNavigate, open, onClose } = props;
+  const { panel, modal } = useModalDrawer<HTMLElement>(open, onClose);
 
   const go = (next: View) => {
     onNavigate(next);
@@ -34,14 +38,17 @@ export function Sidebar(props: Props) {
         aria-hidden
       />
       <aside
+        ref={panel}
         className={`fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 select-none flex-col justify-between border-r border-slate-200 bg-white p-3 transition-transform duration-200 lg:static lg:z-auto lg:w-56 lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
         aria-label="Main navigation"
+        {...(modal && { role: "dialog", "aria-modal": true })}
+        inert={modal && !open}
       >
         <div className="flex flex-col gap-5">
           <div className="flex items-center justify-end lg:hidden">
-            <button type="button" onClick={onClose} className="rounded-md p-1 text-slate-500 hover:bg-slate-100" aria-label="Close navigation">
+            <button type="button" onClick={onClose} data-autofocus className="rounded-md p-1 text-slate-500 hover:bg-slate-100" aria-label="Close navigation">
               <X className="h-5 w-5" />
             </button>
           </div>

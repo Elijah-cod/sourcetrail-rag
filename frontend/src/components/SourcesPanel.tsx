@@ -1,5 +1,8 @@
+"use client";
+
 import { BookOpen, X } from "lucide-react";
 import type { ReactNode } from "react";
+import { useModalDrawer } from "@/hooks/useModalDrawer";
 
 type Props = {
   open: boolean;
@@ -11,9 +14,10 @@ type Props = {
 /**
  * Right-hand "Referenced Sources" panel.
  * - lg and up: a column next to the chat (hidden when closed).
- * - below lg: slides in over the chat; full width on phones.
+ * - below lg: slides in over the chat as a modal dialog; full width on phones.
  */
 export function SourcesPanel({ open, onClose, children, footer }: Props) {
+  const { panel, modal } = useModalDrawer<HTMLElement>(open, onClose);
   return (
     <>
       <div
@@ -24,18 +28,20 @@ export function SourcesPanel({ open, onClose, children, footer }: Props) {
         aria-hidden
       />
       <aside
+        ref={panel}
         className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col justify-between overflow-hidden border-l border-slate-200 bg-white shadow-xs transition-transform duration-200 sm:w-96 lg:static lg:z-auto lg:shrink-0 lg:translate-x-0 ${
           open ? "translate-x-0" : "translate-x-full lg:hidden"
         }`}
         id="sources-panel"
-        aria-label="Referenced sources"
+        {...(modal ? { role: "dialog", "aria-modal": true, "aria-labelledby": "sources-panel-title" } : { "aria-label": "Referenced sources" })}
+        inert={modal && !open}
       >
         <div className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4">
           <div className="flex items-center gap-2">
             <BookOpen className="h-[18px] w-[18px] text-indigo-600" aria-hidden />
-            <span className="font-heading text-[13.5px] font-bold text-slate-900">Referenced Sources</span>
+            <h2 id="sources-panel-title" className="font-heading text-[13.5px] font-bold text-slate-900">Referenced Sources</h2>
           </div>
-          <button type="button" onClick={onClose} className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700" aria-label="Close sources panel">
+          <button type="button" onClick={onClose} data-autofocus className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700" aria-label="Close sources panel">
             <X className="h-[18px] w-[18px]" />
           </button>
         </div>
