@@ -1,5 +1,9 @@
-# Runs on every push and pull request: backend tests against a real pgvector Postgres,
-# and the frontend lint + static build (which also type-checks).
+# Runs on every push and pull request, as three jobs:
+# - unit: the backend tests that need no services (`pytest -m "not integration"`), in seconds;
+# - integration: the tests that need Postgres or the real models, against a pgvector Postgres
+#   with the models cached. REQUIRE_SERVICES=1 turns a skip into a failure, so a database or
+#   model that isn't there can't pass as "skipped";
+# - frontend: lint + static build (which also type-checks).
 name: CI
 
 on:
@@ -7,7 +11,20 @@ on:
   pull_request:
 
 jobs:
-  backend:
+  unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.32"
+      - run: uv sync --frozen
+      - run: uv run pytest -q -m "not integration"
+
+  integration:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -35,7 +52,9 @@ jobs:
           path: backend/.cache/models
           key: models-${{ hashFiles('backend/app/config.py') }}
       - run: uv sync --frozen
-      - run: uv run pytest -q
+      - run: uv run pytest -q -m integration
+        env:
+          REQUIRE_SERVICES: "1"
 
   frontend:
     runs-on: ubuntu-latest

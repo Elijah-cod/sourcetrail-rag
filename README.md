@@ -20,7 +20,8 @@ uv sync                          # create .venv and install dependencies
 uv run python -m app.migrate     # create/update database tables
 uv run uvicorn app.main:app --reload
 # open http://localhost:8000/health  and  http://localhost:8000/docs
-uv run pytest                    # run tests
+uv run pytest                    # run tests (Postgres and model tests skip if unavailable)
+uv run pytest -m "not integration"   # just the fast tests that need no services
 ```
 
 Design spec: [docs/superpowers/specs/2026-10-02-sourcetrail-rag-design.md](docs/superpowers/specs/2026-10-02-sourcetrail-rag-design.md)
@@ -73,9 +74,17 @@ The app's **Benchmarks** page shows the latest results of both scripts (they als
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on every push and pull request: the backend tests against a
-pgvector Postgres (the embedding and reranker models are cached between runs), and the
-frontend lint and static build.
+`.github/workflows/ci.yml` runs on every push and pull request, as three jobs:
+
+- **unit**: the backend tests that need no services (`pytest -m "not integration"`);
+- **integration**: the tests that use Postgres or the real models (`pytest -m integration`),
+  against a pgvector Postgres with the models cached between runs. It sets
+  `REQUIRE_SERVICES=1`, which turns a skipped integration test into a failure, so a missing
+  database or model can't pass as "skipped";
+- **frontend**: lint and the static build.
+
+A test is an integration test when it uses the `db`, `embedder` or `real_reranker` fixture,
+or is marked `@pytest.mark.integration` (see `backend/tests/conftest.py`).
 
 ## Deployment
 

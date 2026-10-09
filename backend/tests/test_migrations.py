@@ -19,6 +19,7 @@ def _connect_or_skip():
         pytest.skip("Postgres not reachable — run `docker compose up -d db` to include this test")
 
 
+@pytest.mark.integration
 def test_migrations_create_schema_and_are_idempotent():
     with _connect_or_skip() as conn:
         apply_migrations(conn)

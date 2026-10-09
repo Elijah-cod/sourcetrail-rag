@@ -26,3 +26,4 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = ["integration: needs Postgres or the real models (see tests/conftest.py)"]

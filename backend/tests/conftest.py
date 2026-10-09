@@ -14,6 +14,29 @@ import pytest
 from app.config import get_settings
 from app.migrate import apply_migrations
 
+# Integration tests need Postgres or the real models: `pytest -m "not integration"` runs the
+# rest in seconds with no services. Without the services they skip, which is convenient
+# locally but would let a broken database pass CI as "skipped". With REQUIRE_SERVICES=1 (CI's
+# integration job) a skipped integration test fails instead.
+INTEGRATION_FIXTURES = {"db", "embedder", "real_reranker"}
+REQUIRE_SERVICES = os.environ.get("REQUIRE_SERVICES") == "1"
+
+
+def pytest_collection_modifyitems(items):
+    for item in items:
+        if INTEGRATION_FIXTURES & set(item.fixturenames):
+            item.add_marker(pytest.mark.integration)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(item, call):
+    report = yield
+    if REQUIRE_SERVICES and report.skipped and item.get_closest_marker("integration"):
+        reason = report.longrepr[2] if isinstance(report.longrepr, tuple) else report.longrepr
+        report.outcome = "failed"
+        report.longrepr = f"REQUIRE_SERVICES=1, but this integration test was skipped: {reason}"
+    return report
+
 
 class FakeEmbedder:
     """A tiny stand-in for the real model: fast, offline, deterministic.
