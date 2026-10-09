@@ -27,6 +27,7 @@ export function SourcesPanel({ open, onClose, children, footer }: Props) {
         className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col justify-between overflow-hidden border-l border-slate-200 bg-white shadow-xs transition-transform duration-200 sm:w-96 lg:static lg:z-auto lg:shrink-0 lg:translate-x-0 ${
           open ? "translate-x-0" : "translate-x-full lg:hidden"
         }`}
+        id="sources-panel"
         aria-label="Referenced sources"
       >
         <div className="flex h-14 items-center justify-between border-b border-slate-200 bg-white px-4">

@@ -103,6 +103,7 @@ export default function Home() {
       <Header
         onOpenNav={() => setNavOpen(true)}
         onToggleSources={() => setSourcesOpen((open) => !open)}
+        sourcesOpen={sourcesOpen}
         sourcesCount={panelResult?.citations.length ?? 0}
       />
       <div className="flex flex-1 overflow-hidden pt-14">
