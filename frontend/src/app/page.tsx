@@ -185,7 +185,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={exportCitations}
-                  className="flex items-center gap-1 text-xs font-semibold text-indigo-600 transition-colors hover:text-indigo-700"
+                  className="-my-1.5 flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
                 >
                   <Download className="h-3.5 w-3.5" aria-hidden />
                   Export citations

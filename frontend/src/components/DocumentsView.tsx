@@ -93,12 +93,12 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://…"
-              className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[13px] focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+              className="h-11 min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 text-[13px] focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
             />
             <button
               type="submit"
               disabled={!url.trim()}
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-[13px] font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="h-11 rounded-lg bg-indigo-600 px-4 text-[13px] font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
             >
               Add
             </button>
@@ -116,7 +116,7 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Filter documents…"
           aria-label="Filter documents"
-          className="w-full rounded-full border border-slate-200 bg-white py-2 pl-9 pr-4 text-[13px] shadow-2xs focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+          className="h-11 w-full rounded-full border border-slate-200 bg-white pl-9 pr-4 text-[13px] shadow-2xs focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
         />
       </div>
 
@@ -175,7 +175,7 @@ function DocumentList({
                 <button
                   type="button"
                   onClick={() => void onDelete(doc)}
-                  className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                  className="-my-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                   aria-label={`Delete ${doc.title}`}
                   title="Delete"
                 >

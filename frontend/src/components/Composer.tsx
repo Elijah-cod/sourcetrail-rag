@@ -90,7 +90,7 @@ export function Composer(props: Props) {
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
-              className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              className="flex h-10 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
               title="Add a PDF, DOCX, Markdown, TXT or CSV file (or paste a link in the box)"
             >
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Paperclip className="h-4 w-4" aria-hidden />}
@@ -115,7 +115,7 @@ export function Composer(props: Props) {
               type="button"
               onClick={() => void send()}
               disabled={disabled || !text.trim()}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 transition-all hover:bg-indigo-700 active:scale-95 motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 transition-all hover:bg-indigo-700 active:scale-95 motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Send"
             >
               <ArrowUp className="h-[18px] w-[18px]" />

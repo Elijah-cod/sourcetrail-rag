@@ -15,6 +15,21 @@
   --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 }
 
+/* For small controls that must stay compact (inline citations, pills): an invisible
+   44 x 44 px tap area centred on the control, so phones don't need precise taps. */
+@utility tap-target {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}
+
 html,
 body {
   overscroll-behavior: none;

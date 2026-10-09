@@ -83,12 +83,12 @@ function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, 
             )}
           </div>
           {message.status !== "loading" && (
-            <div className="flex items-center gap-1">
+            <div className="-my-2 flex items-center">
               {message.result && (
                 <CopyButton
                   label="Copy answer with sources"
                   text={() => answerWithSources(message.result!)}
-                  className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
                 />
               )}
               <IconButton label="Ask again with the current settings" onClick={onRegenerate} disabled={busy}>
@@ -154,7 +154,7 @@ function StatusPill({ result, onCite }: { result: QueryResult; onCite: (n: numbe
       <button
         type="button"
         onClick={() => onCite(result.citations[0].n)}
-        className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-emerald-700 shadow-2xs transition-colors hover:bg-emerald-100/70"
+        className="tap-target inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-emerald-700 shadow-2xs transition-colors hover:bg-emerald-100/70"
       >
         <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
         Grounded in {n} source{n === 1 ? "" : "s"}
@@ -205,14 +205,14 @@ function Referenced({ result, onCite }: { result: QueryResult; onCite: (n: numbe
   for (const c of result.citations) if (!firstPerDocument.has(c.document_id)) firstPerDocument.set(c.document_id, c);
   if (firstPerDocument.size === 0) return null;
   return (
-    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-3 pt-1">
       <span className="mr-1 text-[11.5px] font-medium text-slate-500">Referenced:</span>
       {[...firstPerDocument.values()].map((c) => (
         <button
           key={c.document_id}
           type="button"
           onClick={() => onCite(c.n)}
-          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+          className="tap-target inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
         >
           <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${citationColor(c.n).dot}`} />
           <span className="truncate">{c.document_title}</span>
@@ -230,7 +230,7 @@ function IconButton({ label, onClick, disabled, children }: { label: string; onC
       disabled={disabled}
       title={label}
       aria-label={label}
-      className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
+      className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
     >
       {children}
     </button>

@@ -120,7 +120,7 @@ function Passage({ citation: c, result, active, flash, claim, onSelect, register
           re-create the element, which restarts the CSS animation. */}
       {active && <span key={flash} className="pointer-events-none absolute inset-0 animate-[flash_1.2s_ease-out_forwards] bg-indigo-200/60" aria-hidden />}
 
-      <button type="button" onClick={onSelect} aria-expanded={active} className="relative flex w-full items-center gap-2 px-2.5 py-2 text-left">
+      <button type="button" onClick={onSelect} aria-expanded={active} className="relative flex min-h-11 w-full items-center gap-2 px-2.5 py-2 text-left">
         <span className={`font-mono text-xs font-bold ${color.num}`}>[{c.n}]</span>
         <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-slate-700">{passageLocation(c)}</span>
         {match && (
@@ -142,7 +142,7 @@ function Passage({ citation: c, result, active, flash, claim, onSelect, register
             <CopyButton
               label="Copy passage"
               text={() => c.snippet}
-              className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11.5px] font-semibold text-indigo-600 hover:bg-indigo-50"
+              className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2.5 text-[11.5px] font-semibold text-indigo-600 hover:bg-indigo-50"
             >
               Copy passage
             </CopyButton>

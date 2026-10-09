@@ -33,7 +33,7 @@ export function UploadRows({ uploads, onDismiss }: Props) {
               <p className="truncate text-[13px] font-semibold text-slate-900">{u.name}</p>
               <p className="text-[12px] text-rose-700">{u.message}</p>
             </div>
-            <button type="button" onClick={() => onDismiss(u.id)} className="rounded p-1 text-rose-400 hover:bg-rose-100 hover:text-rose-700" aria-label={`Dismiss ${u.name}`}>
+            <button type="button" onClick={() => onDismiss(u.id)} className="-my-2 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-rose-400 hover:bg-rose-100 hover:text-rose-700" aria-label={`Dismiss ${u.name}`}>
               <X className="h-4 w-4" />
             </button>
           </li>
@@ -52,7 +52,7 @@ export function UploadChips({ uploads, onDismiss, onOpen }: Props & { onOpen: ()
   const problems = recent.filter((u) => u.status === "error" && u.message);
   return (
     <div className="mb-2" aria-live="polite">
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-2">
       {recent.map((u) => {
         const style =
           u.status === "processing"
@@ -63,7 +63,7 @@ export function UploadChips({ uploads, onDismiss, onOpen }: Props & { onOpen: ()
         const Icon = u.status === "processing" ? Loader2 : u.status === "done" ? CheckCircle2 : AlertTriangle;
         return (
           <span key={u.id} className={`inline-flex max-w-full items-center gap-1 rounded-md border pl-2 text-[11.5px] font-medium ${style}`}>
-            <button type="button" onClick={onOpen} className="flex min-w-0 items-center gap-1.5 py-0.5" title={u.message ?? "Open Documents"}>
+            <button type="button" onClick={onOpen} className="flex min-h-8 min-w-0 items-center gap-1.5" title={u.message ?? "Open Documents"}>
               <Icon className={`h-3.5 w-3.5 shrink-0 ${u.status === "processing" ? "animate-spin" : ""}`} aria-hidden />
               <span className="max-w-[180px] truncate">{u.name}</span>
               {u.status === "processing" && <span className="opacity-70">· {u.kind === "link" ? "fetching…" : "indexing…"}</span>}
@@ -71,7 +71,7 @@ export function UploadChips({ uploads, onDismiss, onOpen }: Props & { onOpen: ()
               {u.status === "error" && u.kind !== "notice" && <span className="opacity-80">· failed</span>}
             </button>
             {u.status !== "processing" && (
-              <button type="button" onClick={() => onDismiss(u.id)} className="rounded p-0.5 pr-1 opacity-60 hover:opacity-100" aria-label={`Dismiss ${u.name}`}>
+              <button type="button" onClick={() => onDismiss(u.id)} className="flex h-8 w-8 items-center justify-center opacity-60 hover:opacity-100" aria-label={`Dismiss ${u.name}`}>
                 <X className="h-3 w-3" />
               </button>
             )}

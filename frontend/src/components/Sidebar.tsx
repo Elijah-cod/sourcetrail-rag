@@ -48,7 +48,7 @@ export function Sidebar(props: Props) {
       >
         <div className="flex flex-col gap-5">
           <div className="flex items-center justify-end lg:hidden">
-            <button type="button" onClick={onClose} data-autofocus className="rounded-md p-1 text-slate-500 hover:bg-slate-100" aria-label="Close navigation">
+            <button type="button" onClick={onClose} data-autofocus className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" aria-label="Close navigation">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -59,7 +59,7 @@ export function Sidebar(props: Props) {
               props.onNewQuery();
               go("chat");
             }}
-            className="group flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50 px-3 py-2 text-[13px] font-semibold text-indigo-700 shadow-2xs transition-all hover:bg-indigo-100/80"
+            className="group flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50 px-3 py-2.5 text-[13px] font-semibold text-indigo-700 shadow-2xs transition-all hover:bg-indigo-100/80"
           >
             <Plus className="h-4 w-4 transition-transform group-hover:scale-110 motion-reduce:group-hover:scale-100" aria-hidden />
             New Query
@@ -94,7 +94,7 @@ export function Sidebar(props: Props) {
                     props.onPickRecent(question);
                     go("chat");
                   }}
-                  className="truncate rounded-md px-2.5 py-1.5 text-left text-[12px] text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                  className="min-h-10 truncate rounded-md px-2.5 py-2 text-left text-[12px] text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
                   title={question}
                 >
                   {question}
@@ -140,7 +140,7 @@ function NavItem({ active, onClick, icon, badge, children }: NavItemProps) {
       type="button"
       onClick={onClick}
       aria-current={active ? "page" : undefined}
-      className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors ${
+      className={`flex min-h-10 items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors ${
         active
           ? "border-l-2 border-indigo-600 bg-indigo-600/10 font-semibold text-indigo-700"
           : "font-medium text-slate-600 hover:bg-slate-100/80 hover:text-slate-900"

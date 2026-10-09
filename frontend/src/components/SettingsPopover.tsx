@@ -49,17 +49,17 @@ export function SettingsPopover({ settings, onChange }: Props) {
         aria-controls="retrieval-settings"
         // Below sm only the icons are visible, so the name has to come from here.
         aria-label={`Retrieval settings: ${MODE_LABELS[settings.mode]}`}
-        className="flex items-center gap-1.5 rounded-lg border border-indigo-200/80 bg-indigo-50/70 px-2.5 py-1 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100/80"
+        className="flex h-10 items-center gap-1.5 rounded-lg border border-indigo-200/80 bg-indigo-50/70 px-2.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100/80"
       >
         <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
         <span className="hidden sm:inline">{MODE_LABELS[settings.mode]}</span>
         <ChevronDown className="h-3.5 w-3.5 text-indigo-500" aria-hidden />
       </button>
       {open && (
-        <div id="retrieval-settings" className="absolute bottom-9 left-0 z-50 flex w-[17rem] flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+        <div id="retrieval-settings" className="absolute bottom-12 left-0 z-50 flex w-[17rem] flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
           <div className="flex items-center justify-between border-b border-slate-100 pb-1 text-xs font-bold text-slate-800">
             Retrieval settings
-            <button type="button" onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-700" aria-label="Close settings">
+            <button type="button" onClick={() => setOpen(false)} className="-my-2 -mr-2 flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close settings">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -68,7 +68,7 @@ export function SettingsPopover({ settings, onChange }: Props) {
             <select
               value={settings.mode}
               onChange={(e) => onChange({ ...settings, mode: e.target.value as Mode })}
-              className="rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none"
+              className="h-10 rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none"
             >
               {(Object.keys(MODE_LABELS) as Mode[]).map((mode) => (
                 <option key={mode} value={mode}>
@@ -89,7 +89,7 @@ export function SettingsPopover({ settings, onChange }: Props) {
               max={10}
               value={settings.topK}
               onChange={(e) => onChange({ ...settings, topK: Number(e.target.value) })}
-              className="h-1 w-full cursor-pointer accent-indigo-600"
+              className="h-10 w-full cursor-pointer accent-indigo-600"
             />
           </label>
         </div>

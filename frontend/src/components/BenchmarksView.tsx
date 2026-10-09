@@ -54,7 +54,7 @@ export function BenchmarksView() {
           type="button"
           onClick={load}
           disabled={loading}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[12.5px] font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 disabled:opacity-60"
+          className="flex h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-[12.5px] font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 disabled:opacity-60"
         >
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden />}
           Reload
@@ -176,8 +176,8 @@ function RegressionResultsView({ results, onlyProblems, setOnlyProblems }: {
         <Tile label="Median retrieval time" value={`${(stats.median / 1000).toFixed(1)} s`} />
       </div>
 
-      <label className="flex items-center gap-2 self-start text-[12.5px] text-slate-600">
-        <input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} className="accent-indigo-600" />
+      <label className="flex min-h-10 cursor-pointer items-center gap-2 self-start text-[12.5px] text-slate-600">
+        <input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} className="h-4 w-4 accent-indigo-600" />
         Only questions with a problem
       </label>
 
