@@ -188,3 +188,19 @@ def test_figure_in_no_source_is_reported_with_the_answer(db, fake_embedder, fake
     assert len(llm.calls) == 2                       # one correction was asked for
     assert result.unverified == ["37"]               # FakeLLM repeats itself, so it stays
     assert "2024" not in result.unverified
+
+
+def test_progress_reports_each_stage_as_it_starts(db, fake_embedder, fake_reranker, workspace_id):
+    add_report(db, fake_embedder, workspace_id)
+    stages = []
+    ask(db, fake_embedder, fake_reranker, FakeLLM(), "Why did revenue decline and where is the new office?",
+        [workspace_id], progress=lambda stage, **details: stages.append((stage, details)))
+    assert [s for s, _ in stages] == ["search", "parts", "write", "check"]
+    assert stages[1][1] == {"count": 2} and stages[2][1]["sources"] >= 1
+
+
+def test_no_write_stage_when_nothing_is_found(db, fake_embedder, fake_reranker, workspace_id):
+    stages = []
+    ask(db, fake_embedder, fake_reranker, FakeLLM(), "Anything?", [workspace_id],
+        progress=lambda stage, **details: stages.append(stage))
+    assert stages == ["search"]

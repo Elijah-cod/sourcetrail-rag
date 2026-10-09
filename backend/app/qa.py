@@ -8,6 +8,7 @@ import math
 import re
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal
 from uuid import UUID
@@ -29,6 +30,14 @@ from app.search import HIT_COLUMNS, SearchHit
 from app.tables import whole_table_hits, with_summaries
 
 Status = Literal["answered", "not_found", "llm_unavailable"]
+
+# Called as each stage starts, so the UI can say what is happening during a slow answer:
+# "search", "parts" {count}, "write" {sources}, "check". See POST /api/query/stream.
+Progress = Callable[..., None]
+
+
+def _no_progress(stage: str, **details) -> None:
+    pass
 
 
 @dataclass
@@ -77,8 +86,9 @@ class Sources:
 
 def gather_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None, question: str,
                    workspace_ids: list[UUID], mode: Mode = "hybrid_rerank", min_relevance: float | None = None,
-                   top_k: int = TOP_K) -> Sources:
+                   top_k: int = TOP_K, progress: Progress = _no_progress) -> Sources:
     """Retrieve the passages the LLM will be given (the eval scores this step on its own)."""
+    progress("search")
     parsed = parse_query(question)
     timings: dict[str, float] = {}
     hits = retrieve(conn, embedder, parsed.text, workspace_ids, mode=mode, reranker=reranker,
@@ -114,6 +124,7 @@ def gather_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reran
         # Solace is in Lock Four" needs the Copper-alert section, which doesn't mention KITE-11.
         facets = split_facets(question)
         if facets:
+            progress("parts", count=len(facets))
             started = time.perf_counter()
             hits, uncovered = _add_facet_sources(conn, embedder, reranker, parsed.year, facets, hits,
                                                  workspace_ids, threshold, idents)
@@ -279,12 +290,13 @@ def _lookalike(hit: SearchHit, idents: list[str]) -> bool:
 
 def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None, llm: LLMClient,
         question: str, workspace_ids: list[UUID], mode: Mode = "hybrid_rerank",
-        min_relevance: float | None = None, top_k: int = TOP_K) -> Answer:
-    found = gather_sources(conn, embedder, reranker, question, workspace_ids, mode, min_relevance, top_k)
+        min_relevance: float | None = None, top_k: int = TOP_K, progress: Progress = _no_progress) -> Answer:
+    found = gather_sources(conn, embedder, reranker, question, workspace_ids, mode, min_relevance, top_k, progress)
     if found.final is not None:
         return found.final
     hits, parsed, timings = found.hits, found.parsed, found.timings
 
+    progress("write", sources=len(hits))
     started = time.perf_counter()
     try:
         text, citations = generate_answer(llm, question, hits, found.uncovered)
@@ -297,6 +309,7 @@ def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None,
     # "Not retrieved" isn't "not in the document": search once more for what the answer says is
     # missing, and answer again only if that finds something new.
     if mode == "hybrid_rerank" and text.strip() != NOT_FOUND:
+        progress("check")
         started = time.perf_counter()
         more = _search_for_gaps(conn, embedder, reranker, text, hits, workspace_ids, parsed.year,
                                 get_settings().min_relevance if min_relevance is None else min_relevance)

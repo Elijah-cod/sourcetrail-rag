@@ -1,11 +1,16 @@
 """HTTP routes. Each route is thin: validate input, call the pipeline, shape the output."""
 
 import json
+import logging
+import queue
+import threading
+from collections.abc import Iterator
 from pathlib import Path
 from uuid import UUID
 
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from app import store
 from app.config import get_settings
@@ -102,6 +107,47 @@ def query(body: QueryRequest,
     result = ask(conn, embedder, reranker, metered_llm, body.question,
                  searchable_workspaces(workspace_id), mode=body.mode, top_k=body.top_k)
     return QueryResponse.model_validate(result)
+
+
+@router.post("/query/stream", summary="Ask a question; get progress lines, then the cited answer",
+             dependencies=[Depends(limit_queries)])
+def query_stream(body: QueryRequest,
+                 workspace_id: UUID | None = Depends(optional_workspace),
+                 conn: psycopg.Connection = Depends(get_conn),
+                 embedder: Embedder = Depends(get_embedder),
+                 reranker: Reranker = Depends(get_reranker),
+                 llm: LLMClient = Depends(get_llm),
+                 usage: psycopg.Connection = Depends(get_usage_conn)) -> StreamingResponse:
+    """Same answer as POST /query, as newline-delimited JSON: a line per stage as it starts,
+    e.g. {"stage": "parts", "count": 3}, then {"result": {...}} (or {"error": "..."}).
+
+    The answer itself isn't streamed word by word: it is checked (requirement words, figures,
+    citations) and sometimes rewritten after the LLM replies, so early text could change."""
+    metered_llm = QuotaLLM(llm, usage, get_settings().llm_calls_per_day)
+    lines: queue.Queue[dict | None] = queue.Queue()
+
+    def run() -> None:
+        try:
+            result = ask(conn, embedder, reranker, metered_llm, body.question, searchable_workspaces(workspace_id),
+                         mode=body.mode, top_k=body.top_k,
+                         progress=lambda stage, **details: lines.put({"stage": stage, **details}))
+            lines.put({"result": QueryResponse.model_validate(result).model_dump(mode="json")})
+        except Exception:
+            logging.exception("query stream failed")
+            lines.put({"error": "Something went wrong while answering. Please try again."})
+        finally:
+            lines.put(None)
+
+    def stream() -> Iterator[str]:
+        worker = threading.Thread(target=run, daemon=True)
+        worker.start()
+        try:
+            while (line := lines.get()) is not None:
+                yield json.dumps(line) + "\n"
+        finally:
+            worker.join()        # even if the browser left: ask() is still using the connections
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
 
 
 @router.get("/documents/{document_id}/chunks/{chunk_id}", response_model=ChunkOut,

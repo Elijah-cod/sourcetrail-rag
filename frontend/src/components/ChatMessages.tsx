@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, CalendarRange, Network, RefreshCw, ShieldCheck } from "lucide-react";
+import type { Stage } from "@/lib/api";
 import { answerWithSources } from "@/lib/clipboard";
 import { CopyButton } from "./CopyButton";
 import { useEffect, useRef } from "react";
@@ -99,7 +100,7 @@ function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, 
         </div>
 
         <div className="rounded-2xl border border-slate-200/90 bg-white p-4 text-[14.5px] leading-relaxed text-slate-800 shadow-sm sm:p-5 md:p-6">
-          {message.status === "loading" && <Thinking />}
+          {message.status === "loading" && <Thinking stage={message.stage} />}
           {message.status === "error" && (
             <p className="flex items-start gap-2 text-rose-700">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
@@ -134,7 +135,21 @@ function Unverified({ values }: { values?: string[] }) {
   );
 }
 
-function Thinking() {
+/** What the server is doing right now, in words (the stages come from POST /query/stream). */
+function stageText(stage?: Stage) {
+  switch (stage?.stage) {
+    case "parts":
+      return `Searching each of the ${stage.count} parts of your question…`;
+    case "write":
+      return `Writing an answer from ${stage.sources} passage${stage.sources === 1 ? "" : "s"}…`;
+    case "check":
+      return "Checking the answer against the sources…";
+    default:
+      return "Searching your documents…";
+  }
+}
+
+function Thinking({ stage }: { stage?: Stage }) {
   return (
     <div className="flex items-center gap-3 text-[13px] text-slate-500" role="status">
       <span className="flex gap-1" aria-hidden>
@@ -142,7 +157,7 @@ function Thinking() {
           <span key={delay} className="h-2 w-2 animate-bounce rounded-full motion-reduce:animate-none bg-indigo-400" style={{ animationDelay: `${delay}ms` }} />
         ))}
       </span>
-      Searching documents and writing an answer…
+      {stageText(stage)}
     </div>
   );
 }

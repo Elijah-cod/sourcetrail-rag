@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -82,6 +84,23 @@ def test_query_returns_cited_answer(client):
     chunk = client.get(f"/api/documents/{document_id}/chunks/{citation['chunk_id']}")
     assert chunk.status_code == 200
     assert "lower demand" in chunk.json()["text"]
+
+
+def test_query_stream_sends_stages_then_the_same_result(client):
+    upload(client)
+    question = {"question": "Why did revenue decline?"}
+    with client.stream("POST", "/api/query/stream", json=question) as response:
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/x-ndjson")
+        lines = [json.loads(line) for line in response.iter_lines() if line]
+    assert [line["stage"] for line in lines[:-1]] == ["search", "write", "check"]
+    result = lines[-1]["result"]
+    plain = client.post("/api/query", json=question).json()
+    assert result["answer"] == plain["answer"] and result["citations"] == plain["citations"]
+
+
+def test_query_stream_is_validated_before_streaming(client):
+    assert client.post("/api/query/stream", json={"question": ""}).status_code == 422
 
 
 def test_query_without_cookie_uses_demo_only_and_creates_no_workspace(client, db, fake_embedder):

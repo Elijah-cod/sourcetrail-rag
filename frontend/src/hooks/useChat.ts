@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { ApiError, askQuestion } from "@/lib/api";
+import { ApiError, askQuestionStream, type Stage } from "@/lib/api";
 import type { Mode, QueryResult } from "@/lib/types";
 
 export type UserMessage = { id: number; role: "user"; text: string };
@@ -11,6 +11,7 @@ export type AssistantMessage = {
   question: string;      // what the visitor typed (shown in the chat)
   query: string;         // what was actually searched (usually the same, see ask())
   status: "loading" | "done" | "error";
+  stage?: Stage;         // while loading: what the server is doing now
   result?: QueryResult;
   error?: string;
 };
@@ -41,8 +42,8 @@ export function useChat() {
         setMessages((list) => list.map((m) => (m.id === answerId && m.role === "assistant" ? { ...m, ...changes } : m)));
 
       try {
-        const result = await askQuestion(query, settings.mode, settings.topK);
-        finish({ status: "done", result });
+        const result = await askQuestionStream(query, settings.mode, settings.topK, (stage) => finish({ stage }));
+        finish({ status: "done", stage: undefined, result });
         return answerId;
       } catch (error) {
         let message = error instanceof Error ? error.message : "Something went wrong.";
@@ -63,9 +64,10 @@ export function useChat() {
       if (!target) return;
       const update = (changes: Partial<AssistantMessage>) =>
         setMessages((list) => list.map((m) => (m.id === answerId && m.role === "assistant" ? { ...m, ...changes } : m)));
-      update({ status: "loading", result: undefined, error: undefined });
+      update({ status: "loading", stage: undefined, result: undefined, error: undefined });
       try {
-        update({ status: "done", result: await askQuestion(target.query, settings.mode, settings.topK) });
+        const result = await askQuestionStream(target.query, settings.mode, settings.topK, (stage) => update({ stage }));
+        update({ status: "done", stage: undefined, result });
       } catch (error) {
         update({ status: "error", error: error instanceof Error ? error.message : "Something went wrong." });
       }
