@@ -133,7 +133,7 @@ function Passage({ citation: c, result, active, flash, claim, onSelect, register
 
       {active ? (
         <div className="relative px-2.5 pb-2.5">
-          <div className="space-y-2.5 rounded-md border-l-2 border-indigo-500 bg-white p-3 text-[12.5px] leading-relaxed text-slate-700 shadow-2xs">
+          <div className="space-y-2.5 rounded-md border border-indigo-200 bg-white p-3 text-[12.5px] leading-relaxed text-slate-700 shadow-2xs">
             {blocks.map((block, i) => (
               <BlockView key={i} block={block} marks={marks} />
             ))}

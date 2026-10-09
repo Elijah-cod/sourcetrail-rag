@@ -35,22 +35,6 @@ body {
   overscroll-behavior: none;
 }
 
-/* Slim scrollbars, as in the design */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgb(100 116 139 / 0.2);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgb(100 116 139 / 0.35);
-}
-
 /* The highlight that fades out when a passage is picked from the chat. */
 @keyframes flash {
   from { opacity: 1; }
