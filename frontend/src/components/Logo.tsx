@@ -1,10 +1,10 @@
 import { Network } from "lucide-react";
 
-/** The SourceTrail wordmark: gradient tile + name + RAG badge. */
+/** The SourceTrail wordmark: icon tile + name + RAG badge. */
 export function Logo() {
   return (
     <div className="flex items-center gap-2.5">
-      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 shadow-sm shadow-indigo-500/25">
+      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600">
         <Network className="h-4 w-4 text-white" aria-hidden />
       </div>
       <div className="flex items-baseline gap-1.5">

@@ -41,7 +41,7 @@ export function SourcesPanel({ open, onClose, children, footer }: Props) {
             <BookOpen className="h-[18px] w-[18px] text-indigo-600" aria-hidden />
             <h2 id="sources-panel-title" className="font-heading text-[13.5px] font-bold text-slate-900">Referenced Sources</h2>
           </div>
-          <button type="button" onClick={onClose} data-autofocus className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700" aria-label="Close sources panel">
+          <button type="button" onClick={onClose} data-autofocus className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700" aria-label="Close sources panel">
             <X className="h-[18px] w-[18px]" />
           </button>
         </div>

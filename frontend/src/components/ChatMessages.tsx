@@ -68,7 +68,7 @@ type BubbleProps = {
 function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, busy }: BubbleProps) {
   return (
     <div className="flex w-full items-start gap-3 self-start sm:gap-3.5">
-      <div className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-indigo-200 bg-gradient-to-tr from-indigo-50 to-indigo-100 text-indigo-600 shadow-2xs sm:flex">
+      <div className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 sm:flex">
         <Network className="h-4 w-4" aria-hidden />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-3">
@@ -89,7 +89,7 @@ function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, 
                 <CopyButton
                   label="Copy answer with sources"
                   text={() => answerWithSources(message.result!)}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
                 />
               )}
               <IconButton label="Ask again with the current settings" onClick={onRegenerate} disabled={busy}>
@@ -193,22 +193,22 @@ function StatusPill({ result, onCite }: { result: QueryResult; onCite: (n: numbe
 
 /** Real per-stage timings from the backend (replacing the design's sample numbers). */
 function Timings({ result }: { result: QueryResult }) {
-  const cards = [
-    { label: "Search", value: result.timings.search_ms, note: "vector + keyword", tone: "border-indigo-100 bg-indigo-50/60 text-slate-900" },
-    { label: "Rerank", value: result.timings.rerank_ms, note: "cross-encoder", tone: "border-amber-200/70 bg-amber-50/60 text-amber-700" },
-    { label: "Answer", value: result.timings.generation_ms, note: "LLM", tone: "border-emerald-200 bg-emerald-50/70 text-emerald-700" },
-  ].filter((c) => c.value !== undefined);
-  if (cards.length === 0) return null;
+  const stages = [
+    { label: "Search", value: result.timings.search_ms, note: "vector + keyword search" },
+    { label: "Rerank", value: result.timings.rerank_ms, note: "cross-encoder reranking" },
+    { label: "Answer", value: result.timings.generation_ms, note: "LLM answer and checks" },
+  ].filter((s) => s.value !== undefined);
+  if (stages.length === 0) return null;
+  // One quiet line of figures: useful for debugging, not the point of the answer.
   return (
-    <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 sm:gap-3">
-      {cards.map((c) => (
-        <div key={c.label} className={`flex flex-col rounded-xl border p-2.5 sm:p-3 ${c.tone}`}>
-          <span className="text-[12px] font-medium text-slate-500">{c.label}</span>
-          <span className="font-heading text-sm font-bold sm:text-base">{formatMs(c.value!)}</span>
-          <span className="hidden text-[12px] text-slate-500 sm:block">{c.note}</span>
+    <dl className="flex flex-wrap gap-x-5 gap-y-1 border-t border-slate-100 pt-3 text-[13px]">
+      {stages.map((s) => (
+        <div key={s.label} className="flex items-baseline gap-1.5" title={s.note}>
+          <dt className="text-slate-500">{s.label}</dt>
+          <dd className="font-mono font-semibold tabular-nums text-slate-800">{formatMs(s.value!)}</dd>
         </div>
       ))}
-    </div>
+    </dl>
   );
 }
 
@@ -245,7 +245,7 @@ function IconButton({ label, onClick, disabled, children }: { label: string; onC
       disabled={disabled}
       title={label}
       aria-label={label}
-      className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
+      className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40"
     >
       {children}
     </button>

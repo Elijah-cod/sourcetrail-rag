@@ -11,7 +11,7 @@ const SUGGESTIONS = [
 export function EmptyChat({ onPick }: { onPick: (question: string) => void }) {
   return (
     <div className="mx-auto flex max-w-2xl flex-1 flex-col items-center justify-center gap-6 px-2 py-10 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-200 bg-gradient-to-tr from-indigo-50 to-indigo-100 text-indigo-600">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
         <Network className="h-6 w-6" aria-hidden />
       </div>
       <div className="space-y-2">

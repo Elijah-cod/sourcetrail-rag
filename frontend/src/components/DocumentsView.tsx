@@ -109,7 +109,7 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
 
       {/* Search */}
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
         <input
           type="search"
           value={query}
@@ -154,7 +154,7 @@ function DocumentList({
 }) {
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="px-1 font-mono text-[12px] font-bold uppercase tracking-wider text-slate-400">
+      <h2 className="px-1 font-mono text-[12px] font-bold uppercase tracking-wider text-slate-500">
         {title} · {documents.length}
       </h2>
       {documents.length === 0 ? (
@@ -175,7 +175,7 @@ function DocumentList({
                 <button
                   type="button"
                   onClick={() => void onDelete(doc)}
-                  className="-my-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                  className="-my-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
                   aria-label={`Delete ${doc.title}`}
                   title="Delete"
                 >

@@ -128,7 +128,7 @@ function Passage({ citation: c, result, active, flash, claim, onSelect, register
             {match.label}
           </span>
         )}
-        <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${active ? "rotate-180" : ""}`} aria-hidden />
+        <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${active ? "rotate-180" : ""}`} aria-hidden />
       </button>
 
       {active ? (
@@ -191,7 +191,7 @@ function BlockView({ block, marks }: { block: Block; marks: Set<string> }) {
       )}
       {block.body.map((f, i) => (
         <div key={i}>
-          {f.label && <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-400">{f.label}</p>}
+          {f.label && <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-500">{f.label}</p>}
           <p className="break-words"><Marked text={f.value} marks={marks} /></p>
         </div>
       ))}

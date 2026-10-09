@@ -74,7 +74,7 @@ export function SettingsPopover({ settings, onChange }: Props) {
         <div id="retrieval-settings" role="dialog" aria-labelledby="retrieval-settings-title" className="absolute inset-x-0 bottom-full z-50 mb-2 flex flex-col gap-3 sm:inset-x-auto sm:bottom-12 sm:left-0 sm:mb-0 sm:w-[17rem] rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
           <div className="flex items-center justify-between border-b border-slate-100 pb-1 text-xs font-bold text-slate-800">
             <h2 id="retrieval-settings-title">Retrieval settings</h2>
-            <button type="button" onClick={closeToTrigger} className="-my-2 -mr-2 flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close settings">
+            <button type="button" onClick={closeToTrigger} className="-my-2 -mr-2 flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700" aria-label="Close settings">
               <X className="h-4 w-4" />
             </button>
           </div>

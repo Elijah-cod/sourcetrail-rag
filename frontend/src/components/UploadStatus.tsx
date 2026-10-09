@@ -33,7 +33,7 @@ export function UploadRows({ uploads, onDismiss }: Props) {
               <p className="truncate text-[13px] font-semibold text-slate-900">{u.name}</p>
               <p className="text-[12px] text-rose-700">{u.message}</p>
             </div>
-            <button type="button" onClick={() => onDismiss(u.id)} className="-my-2 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-rose-400 hover:bg-rose-100 hover:text-rose-700" aria-label={`Dismiss ${u.name}`}>
+            <button type="button" onClick={() => onDismiss(u.id)} className="-my-2 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-100 hover:text-rose-700" aria-label={`Dismiss ${u.name}`}>
               <X className="h-4 w-4" />
             </button>
           </li>

@@ -115,7 +115,7 @@ export function Sidebar(props: Props) {
               {props.online === null ? "Connecting…" : props.online ? "Engine Online" : "Engine Offline"}
             </span>
           </span>
-          <span className="rounded bg-slate-100 px-1 font-mono text-[12px] text-slate-400">v0.1</span>
+          <span className="rounded bg-slate-100 px-1 font-mono text-[12px] text-slate-500">v0.1</span>
         </div>
       </aside>
     </>
@@ -123,7 +123,7 @@ export function Sidebar(props: Props) {
 }
 
 function SectionLabel({ children }: { children: ReactNode }) {
-  return <span className="px-2 font-mono text-[12px] font-bold uppercase tracking-wider text-slate-400">{children}</span>;
+  return <span className="px-2 font-mono text-[12px] font-bold uppercase tracking-wider text-slate-500">{children}</span>;
 }
 
 type NavItemProps = {
@@ -147,7 +147,7 @@ function NavItem({ active, onClick, icon, badge, children }: NavItemProps) {
       }`}
     >
       <span className="flex items-center gap-2.5">
-        <span className={active ? "text-indigo-600" : "text-slate-400"}>{icon}</span>
+        <span className={active ? "text-indigo-600" : "text-slate-500"}>{icon}</span>
         {children}
       </span>
       {badge !== undefined && (

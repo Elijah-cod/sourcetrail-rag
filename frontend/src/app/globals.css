@@ -30,6 +30,15 @@
   }
 }
 
+/* One visible focus ring for keyboard users everywhere. Fields that draw their own ring
+   (focus:outline-none + ring) opt out through the utility, which wins over this base rule. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
 html,
 body {
   overscroll-behavior: none;

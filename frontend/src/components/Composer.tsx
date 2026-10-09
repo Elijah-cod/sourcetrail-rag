@@ -77,7 +77,7 @@ export function Composer(props: Props) {
           onPaste={onPaste}
           maxLength={1000}
           placeholder="Ask a question, paste a link, or attach a file…"
-          className="w-full resize-none bg-transparent px-2 py-1 text-[14px] leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none"
+          className="w-full resize-none bg-transparent px-2 py-1 text-[14px] leading-relaxed text-slate-800 placeholder:text-slate-500 focus:outline-none"
         />
         {hint && (
           <p className="flex items-center gap-1.5 px-2 pb-1 text-[13px] text-indigo-700">
@@ -110,7 +110,7 @@ export function Composer(props: Props) {
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden font-mono text-[12px] text-slate-400 md:inline">Enter to send</span>
+            <span className="hidden font-mono text-[12px] text-slate-500 md:inline">Enter to send</span>
             <button
               type="button"
               onClick={() => void send()}

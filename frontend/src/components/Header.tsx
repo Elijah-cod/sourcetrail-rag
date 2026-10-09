@@ -30,7 +30,7 @@ export function Header({ onOpenNav, onToggleSources, sourcesOpen, sourcesCount }
         >
           <FolderClosed className="h-4 w-4 text-indigo-600" aria-hidden />
           <span className="truncate">Your workspace</span>
-          <span className="text-[12px] font-normal text-slate-400">· 24h</span>
+          <span className="text-[12px] font-normal text-slate-500">· 24h</span>
         </div>
       </div>
 
@@ -53,8 +53,10 @@ export function Header({ onOpenNav, onToggleSources, sourcesOpen, sourcesCount }
         </button>
         <div className="hidden h-4 w-px bg-slate-200 sm:block" />
         <div
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-600 to-indigo-800 text-white shadow-xs ring-2 ring-indigo-100"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600"
           title="Guest — no account needed"
+          role="img"
+          aria-label="Guest, no account needed"
         >
           <User className="h-4 w-4" aria-hidden />
         </div>
