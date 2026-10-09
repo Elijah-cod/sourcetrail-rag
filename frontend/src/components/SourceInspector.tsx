@@ -4,6 +4,7 @@ import { ChevronDown, ExternalLink } from "lucide-react";
 import { Fragment, useEffect, useRef } from "react";
 import { citationColor, documentKind, matchStrength, passageLocation, sourceFor } from "@/lib/citations";
 import { splitSentences, supportingSentences } from "@/lib/highlight";
+import { scrollBehavior } from "@/lib/motion";
 import { formatPassage, previewText, type Block } from "@/lib/passage";
 import type { Citation, QueryResult } from "@/lib/types";
 import { CopyButton } from "./CopyButton";
@@ -30,8 +31,8 @@ export function SourceInspector({ result, selected, flash, claim, onSelect }: Pr
   useEffect(() => {
     const item = items.current.get(selected);
     const mark = item?.querySelector("mark[data-support]");
-    if (mark) mark.scrollIntoView({ behavior: "smooth", block: "center" });
-    else item?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (mark) mark.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
+    else item?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
   }, [selected, flash]);
 
   if (result.citations.length === 0) {

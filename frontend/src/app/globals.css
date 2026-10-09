@@ -41,3 +41,16 @@ body {
   from { opacity: 1; }
   to { opacity: 0; }
 }
+
+/* Visitors who ask their system for less motion get no bouncing, flashing, sliding or scaling.
+   Spinners keep turning: they are the only sign that an upload is still running. */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -115,7 +115,7 @@ export function Composer(props: Props) {
               type="button"
               onClick={() => void send()}
               disabled={disabled || !text.trim()}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 transition-all hover:bg-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 transition-all hover:bg-indigo-700 active:scale-95 motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Send"
             >
               <ArrowUp className="h-[18px] w-[18px]" />

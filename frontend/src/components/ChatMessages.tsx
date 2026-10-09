@@ -6,6 +6,7 @@ import { CopyButton } from "./CopyButton";
 import { useEffect, useRef } from "react";
 import type { AssistantMessage, Message } from "@/hooks/useChat";
 import { citationColor } from "@/lib/citations";
+import { scrollBehavior } from "@/lib/motion";
 import type { QueryResult } from "@/lib/types";
 import { AnswerText } from "./AnswerText";
 
@@ -22,7 +23,7 @@ export function ChatMessages({ messages, onCite, active, onRegenerate, busy }: P
 
   // Keep the newest message in view whenever the conversation changes.
   useEffect(() => {
-    end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    end.current?.scrollIntoView({ behavior: scrollBehavior(), block: "end" });
   }, [messages]);
 
   return (
@@ -138,7 +139,7 @@ function Thinking() {
     <div className="flex items-center gap-3 text-[13px] text-slate-500" role="status">
       <span className="flex gap-1" aria-hidden>
         {[0, 150, 300].map((delay) => (
-          <span key={delay} className="h-2 w-2 animate-bounce rounded-full bg-indigo-400" style={{ animationDelay: `${delay}ms` }} />
+          <span key={delay} className="h-2 w-2 animate-bounce rounded-full motion-reduce:animate-none bg-indigo-400" style={{ animationDelay: `${delay}ms` }} />
         ))}
       </span>
       Searching documents and writing an answer…

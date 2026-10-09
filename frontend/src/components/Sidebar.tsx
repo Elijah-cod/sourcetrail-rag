@@ -61,7 +61,7 @@ export function Sidebar(props: Props) {
             }}
             className="group flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50 px-3 py-2 text-[13px] font-semibold text-indigo-700 shadow-2xs transition-all hover:bg-indigo-100/80"
           >
-            <Plus className="h-4 w-4 transition-transform group-hover:scale-110" aria-hidden />
+            <Plus className="h-4 w-4 transition-transform group-hover:scale-110 motion-reduce:group-hover:scale-100" aria-hidden />
             New Query
           </button>
 
