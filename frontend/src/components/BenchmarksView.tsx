@@ -156,34 +156,86 @@ function RegressionResultsView({ results, onlyProblems, setOnlyProblems }: {
     };
   }, [results]);
 
+  // Every way the run can fall short, in words, so a green tile can't hide a problem elsewhere.
+  const issues = [
+    stats.found < stats.facets && `${stats.facets - stats.found} question part${plural(stats.facets - stats.found)} found no supporting passage`,
+    stats.uncovered > 0 &&
+      `${stats.uncovered} question${plural(stats.uncovered)} would tell the reader a part isn't in the documents, though it is`,
+    results.with_answers && stats.passed < stats.graded && `${stats.graded - stats.passed} answer${plural(stats.graded - stats.passed)} failed a check`,
+    results.with_answers && stats.unverified > 0 && `${stats.unverified} answer${plural(stats.unverified)} contain a figure found in no source`,
+    stats.ingestOk < results.ingestion.length && `${results.ingestion.length - stats.ingestOk} ingestion check${plural(results.ingestion.length - stats.ingestOk)} failed`,
+  ].filter((issue): issue is string => Boolean(issue));
+
   const rows = onlyProblems ? results.questions.filter(hasProblem) : results.questions;
 
   return (
     <Section
       title="Regression benchmark"
-      subtitle={`${results.questions.length} questions over ${new Set(results.questions.map((q) => q.fixture)).size} documents · run ${when(results.generated_at)}${results.with_answers ? "" : " · retrieval only (answers not graded)"}`}
+      subtitle={`${results.questions.length} questions over ${new Set(results.questions.map((q) => q.fixture)).size} documents · run ${when(results.generated_at)}`}
     >
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        {results.with_answers && (
-          <Tile label="Answers passing every check" value={`${stats.passed}/${stats.graded}`} good={stats.passed === stats.graded} />
+      <div
+        className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-[13px] ${
+          issues.length ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"
+        }`}
+      >
+        {issues.length ? (
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
+        ) : (
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
         )}
-        <Tile label="Question parts with a passage" value={`${stats.found}/${stats.facets}`} note={`${stats.complete}/${stats.answerable} questions complete`} good={stats.found === stats.facets} />
-        <Tile label="Parts wrongly reported missing" value={`${stats.uncovered}`} note={`of ${stats.answerable} questions`} good={stats.uncovered === 0} />
-        {results.with_answers && (
-          <Tile label="Answers with an unsourced figure" value={`${stats.unverified}`} note="found in no source" good={stats.unverified === 0} />
-        )}
-        <Tile label="Ingestion checks" value={`${stats.ingestOk}/${results.ingestion.length}`} good={stats.ingestOk === results.ingestion.length} />
-        <Tile label="Median retrieval time" value={`${(stats.median / 1000).toFixed(1)} s`} />
+        <div>
+          <p className="font-semibold">
+            {issues.length ? "Needs attention" : "Every check in this run passed"}
+          </p>
+          {issues.length > 0 && (
+            <ul className="mt-1 list-disc space-y-0.5 pl-4">
+              {issues.map((issue) => (
+                <li key={issue}>{issue}.</li>
+              ))}
+            </ul>
+          )}
+          {!results.with_answers && (
+            <p className="mt-1 text-slate-600">
+              This run checked retrieval only; answers weren&apos;t generated or graded.
+            </p>
+          )}
+        </div>
       </div>
 
-      <label className="flex min-h-10 cursor-pointer items-center gap-2 self-start text-[12.5px] text-slate-600">
+      <TileGroup title="Finding the evidence">
+        <Tile label="Question parts with a passage" value={`${stats.found}/${stats.facets}`} note={`${stats.complete}/${stats.answerable} questions fully covered`} good={stats.found === stats.facets} />
+        <Tile label="Questions saying a found part is missing" value={`${stats.uncovered}/${stats.answerable}`} good={stats.uncovered === 0} />
+        <Tile label="Ingestion checks" value={`${stats.ingestOk}/${results.ingestion.length}`} good={stats.ingestOk === results.ingestion.length} />
+        <Tile label="Median retrieval time" value={`${(stats.median / 1000).toFixed(1)} s`} />
+      </TileGroup>
+
+      <TileGroup title="Using it in answers">
+        {results.with_answers ? (
+          <>
+            <Tile label="Answers passing every check" value={`${stats.passed}/${stats.graded}`} good={stats.passed === stats.graded} />
+            <Tile label="Answers with an unsourced figure" value={`${stats.unverified}`} note="found in no source" good={stats.unverified === 0} />
+          </>
+        ) : (
+          <Tile label="Answers" value="Not graded" note="run with --answers to grade them" />
+        )}
+      </TileGroup>
+
+      <label className="flex min-h-10 cursor-pointer items-center gap-2 self-start text-[13px] text-slate-600">
         <input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} className="h-4 w-4 accent-indigo-600" />
         Only questions with a problem
       </label>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="w-full min-w-[640px] text-left text-[12.5px]">
-          <thead className="border-b border-slate-200 bg-slate-50 text-[11.5px] font-semibold text-slate-500">
+      {/* Phones: one card per question, so no column is hidden off-screen. */}
+      <ul className="flex flex-col gap-2 sm:hidden">
+        {rows.map((q) => (
+          <QuestionCard key={q.id} q={q} />
+        ))}
+        {rows.length === 0 && <li className="rounded-xl border border-slate-200 bg-white px-3 py-4 text-center text-[13px] text-slate-500">No problems in this run.</li>}
+      </ul>
+
+      <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white sm:block">
+        <table className="w-full min-w-[640px] text-left text-[13px]">
+          <thead className="border-b border-slate-200 bg-slate-50 text-[12px] font-semibold text-slate-500">
             <tr>
               <th className="px-3 py-2">Question</th>
               <th className="px-3 py-2">Retrieval</th>
@@ -207,6 +259,17 @@ function RegressionResultsView({ results, onlyProblems, setOnlyProblems }: {
   );
 }
 
+const plural = (n: number) => (n === 1 ? "" : "s");
+
+function TileGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-[13px] font-semibold text-slate-700">{title}</h3>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{children}</div>
+    </div>
+  );
+}
+
 function Verdict({ ok, children }: { ok: boolean; children: ReactNode }) {
   const Icon = ok ? CheckCircle2 : XCircle;
   return (
@@ -217,7 +280,8 @@ function Verdict({ ok, children }: { ok: boolean; children: ReactNode }) {
   );
 }
 
-function QuestionRow({ q }: { q: RegressionQuestion }) {
+/** The retrieval and answer verdicts for one question, shared by the table row and the phone card. */
+function verdicts(q: RegressionQuestion) {
   // Unanswerable questions: retrieval passes when nothing is sent; otherwise the LLM must refuse.
   const retrieval = q.answerable ? (
     <Verdict ok={q.facets_covered === q.facets && q.uncovered.length === 0}>
@@ -230,28 +294,61 @@ function QuestionRow({ q }: { q: RegressionQuestion }) {
     <span className="text-slate-500">sent to the LLM to refuse</span>
   );
 
-  let answer: ReactNode = <span className="text-slate-400">not graded</span>;
+  let answer: ReactNode = <span className="text-slate-500">not graded</span>;
   if (q.problems !== null) {
     answer = q.problems.length === 0 ? <Verdict ok>pass</Verdict> : <Verdict ok={false}>{q.problems.join("; ")}</Verdict>;
   }
+  const unverified = q.unverified && q.unverified.length > 0 && (
+    <span className="block text-[12px] text-amber-700">not in any source: {q.unverified.join(", ")}</span>
+  );
+  return { retrieval, answer, unverified, time: `${(q.latency_ms / 1000).toFixed(1)} s` };
+}
 
+function QuestionText({ q }: { q: RegressionQuestion }) {
+  return (
+    <>
+      <span className="font-mono text-[12px] text-slate-500">{q.id}</span>
+      <span className="block text-slate-800" title={q.question}>
+        {q.question.length > 140 ? `${q.question.slice(0, 140)}…` : q.question}
+      </span>
+    </>
+  );
+}
+
+function QuestionRow({ q }: { q: RegressionQuestion }) {
+  const v = verdicts(q);
   return (
     <tr className="align-top">
       <td className="px-3 py-2">
-        <span className="font-mono text-[11px] text-slate-400">{q.id}</span>
-        <span className="block text-slate-800" title={q.question}>
-          {q.question.length > 140 ? `${q.question.slice(0, 140)}…` : q.question}
-        </span>
+        <QuestionText q={q} />
       </td>
-      <td className="px-3 py-2">{retrieval}</td>
+      <td className="px-3 py-2">{v.retrieval}</td>
       <td className="px-3 py-2">
-        {answer}
-        {q.unverified && q.unverified.length > 0 && (
-          <span className="block text-[11.5px] text-amber-700">not in any source: {q.unverified.join(", ")}</span>
-        )}
+        {v.answer}
+        {v.unverified}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-500">{(q.latency_ms / 1000).toFixed(1)} s</td>
+      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-500">{v.time}</td>
     </tr>
+  );
+}
+
+function QuestionCard({ q }: { q: RegressionQuestion }) {
+  const v = verdicts(q);
+  return (
+    <li className="rounded-xl border border-slate-200 bg-white p-3 text-[13px]">
+      <QuestionText q={q} />
+      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+        <dt className="text-[12px] font-semibold text-slate-500">Retrieval</dt>
+        <dd>{v.retrieval}</dd>
+        <dt className="text-[12px] font-semibold text-slate-500">Answer</dt>
+        <dd>
+          {v.answer}
+          {v.unverified}
+        </dd>
+        <dt className="text-[12px] font-semibold text-slate-500">Time</dt>
+        <dd className="tabular-nums text-slate-600">{v.time}</dd>
+      </dl>
+    </li>
   );
 }
 
@@ -271,6 +368,7 @@ function Retrieval({ results }: { results: RetrievalResults | null }) {
       title="Retrieval modes"
       subtitle={`${results.answerable} questions over the demo collection (+${results.unanswerable} unanswerable) · run ${when(results.generated_at)}`}
     >
+      <p className="text-[12px] text-slate-500 sm:hidden">Swipe the table sideways to see every column.</p>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[560px] text-left text-[12.5px] tabular-nums">
           <thead className="border-b border-slate-200 bg-slate-50 text-[11.5px] font-semibold text-slate-500">
