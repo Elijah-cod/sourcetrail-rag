@@ -128,13 +128,16 @@ export default function Home() {
                 {chat.messages.length === 0 ? (
                   <EmptyChat onPick={(q) => void ask(q)} />
                 ) : (
-                  <ChatMessages
-                    messages={chat.messages}
-                    onCite={inspect}
-                    active={sourcesOpen ? inspected : null}
-                    onRegenerate={(id) => void chat.regenerate(id)}
-                    busy={chat.loading}
-                  />
+                  <>
+                    <h1 className="sr-only">Chat</h1>
+                    <ChatMessages
+                      messages={chat.messages}
+                      onCite={inspect}
+                      active={sourcesOpen ? inspected : null}
+                      onRegenerate={(id) => void chat.regenerate(id)}
+                      busy={chat.loading}
+                    />
+                  </>
                 )}
               </div>
               <Composer

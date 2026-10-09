@@ -20,7 +20,7 @@ type Props = {
 
 export function Sidebar(props: Props) {
   const { view, onNavigate, open, onClose } = props;
-  const { panel, modal } = useModalDrawer<HTMLElement>(open, onClose);
+  const { panel, modal } = useModalDrawer<HTMLDivElement>(open, onClose);
 
   const go = (next: View) => {
     onNavigate(next);
@@ -37,13 +37,14 @@ export function Sidebar(props: Props) {
         onClick={onClose}
         aria-hidden
       />
-      <aside
+      <div
         ref={panel}
         className={`fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 select-none flex-col justify-between border-r border-ink-200 bg-raised p-3 transition-transform duration-200 lg:static lg:z-auto lg:w-56 lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
         aria-label="Main navigation"
-        {...(modal && { role: "dialog", "aria-modal": true })}
+        // A drawer over the page on small screens; an ordinary side column on lg and up.
+        {...(modal ? { role: "dialog", "aria-modal": true } : { role: "complementary" })}
         inert={modal && !open}
       >
         <div className="flex flex-col gap-5">
@@ -115,9 +116,9 @@ export function Sidebar(props: Props) {
               {props.online === null ? "Connecting…" : props.online ? "Engine Online" : "Engine Offline"}
             </span>
           </span>
-          <span className="rounded bg-ink-100 px-1 font-mono text-[12px] text-ink-500">v0.1</span>
+          <span className="rounded bg-ink-100 px-1 font-mono text-[12px] text-ink-600">v0.1</span>
         </div>
-      </aside>
+      </div>
     </>
   );
 }

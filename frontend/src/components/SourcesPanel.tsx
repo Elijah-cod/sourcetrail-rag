@@ -17,7 +17,7 @@ type Props = {
  * - below lg: slides in over the chat as a modal dialog; full width on phones.
  */
 export function SourcesPanel({ open, onClose, children, footer }: Props) {
-  const { panel, modal } = useModalDrawer<HTMLElement>(open, onClose);
+  const { panel, modal } = useModalDrawer<HTMLDivElement>(open, onClose);
   return (
     <>
       <div
@@ -27,13 +27,13 @@ export function SourcesPanel({ open, onClose, children, footer }: Props) {
         onClick={onClose}
         aria-hidden
       />
-      <aside
+      <div
         ref={panel}
         className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col justify-between overflow-hidden border-l border-ink-200 bg-raised shadow-xs transition-transform duration-200 sm:w-96 lg:static lg:z-auto lg:shrink-0 lg:translate-x-0 ${
           open ? "translate-x-0" : "translate-x-full lg:hidden"
         }`}
         id="sources-panel"
-        {...(modal ? { role: "dialog", "aria-modal": true, "aria-labelledby": "sources-panel-title" } : { "aria-label": "Referenced sources" })}
+        {...(modal ? { role: "dialog", "aria-modal": true, "aria-labelledby": "sources-panel-title" } : { role: "complementary", "aria-label": "Referenced sources" })}
         inert={modal && !open}
       >
         <div className="flex h-14 items-center justify-between border-b border-ink-200 bg-raised px-4">
@@ -55,7 +55,7 @@ export function SourcesPanel({ open, onClose, children, footer }: Props) {
           )}
         </div>
         {footer && <div className="flex items-center justify-between border-t border-ink-200 bg-raised p-3 text-xs text-ink-500">{footer}</div>}
-      </aside>
+      </div>
     </>
   );
 }

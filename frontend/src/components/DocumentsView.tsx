@@ -66,7 +66,7 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
             <UploadCloud className="h-6 w-6 text-brand-600" aria-hidden />
           )}
           <span className="text-[13px] font-semibold text-ink-800">{busy ? "Indexing… add more any time" : "Upload files"}</span>
-          <span className="text-[13px] text-ink-500">PDF, DOCX, Markdown, TXT or CSV — click, or drop files anywhere</span>
+          <span className="text-[13px] text-ink-600">PDF, DOCX, Markdown, TXT or CSV — click, or drop files anywhere</span>
         </button>
         <input
           ref={fileInput}

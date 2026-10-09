@@ -233,7 +233,7 @@ function RegressionResultsView({ results, onlyProblems, setOnlyProblems }: {
         {rows.length === 0 && <li className="rounded-xl border border-ink-200 bg-raised px-3 py-4 text-center text-[13px] text-ink-500">No problems in this run.</li>}
       </ul>
 
-      <div className="hidden overflow-x-auto rounded-xl border border-ink-200 bg-raised sm:block">
+      <div className="hidden overflow-x-auto rounded-xl border border-ink-200 bg-raised sm:block" tabIndex={0} role="region" aria-label="Questions">
         <table className="w-full min-w-[640px] text-left text-[13px]">
           <thead className="border-b border-ink-200 bg-ink-50 text-[12px] font-semibold text-ink-500">
             <tr>
@@ -369,7 +369,7 @@ function Retrieval({ results }: { results: RetrievalResults | null }) {
       subtitle={`${results.answerable} questions over the demo collection (+${results.unanswerable} unanswerable) · run ${when(results.generated_at)}`}
     >
       <p className="text-[12px] text-ink-500 sm:hidden">Swipe the table sideways to see every column.</p>
-      <div className="overflow-x-auto rounded-xl border border-ink-200 bg-raised">
+      <div className="overflow-x-auto rounded-xl border border-ink-200 bg-raised" tabIndex={0} role="region" aria-label="Retrieval modes">
         <table className="w-full min-w-[560px] text-left text-[12.5px] tabular-nums">
           <thead className="border-b border-ink-200 bg-ink-50 text-[13px] font-semibold text-ink-500">
             <tr>
