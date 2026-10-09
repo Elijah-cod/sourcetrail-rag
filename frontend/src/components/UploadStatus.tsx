@@ -15,11 +15,11 @@ export function UploadRows({ uploads, onDismiss }: Props) {
     <ul className="flex flex-col gap-2" aria-live="polite">
       {visible.map((u) =>
         u.status === "processing" ? (
-          <li key={u.id} className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
-            <Loader2 className="h-5 w-5 shrink-0 animate-spin text-indigo-600" aria-hidden />
+          <li key={u.id} className="flex items-center gap-3 rounded-xl border border-brand-200 bg-brand-50/60 p-3">
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin text-brand-600" aria-hidden />
             <div className="min-w-0">
-              <p className="truncate text-[13px] font-semibold text-slate-900">{u.name}</p>
-              <p className="text-[13px] text-slate-600">
+              <p className="truncate text-[13px] font-semibold text-ink-900">{u.name}</p>
+              <p className="text-[13px] text-ink-600">
                 {u.kind === "link"
                   ? "Fetching the page and indexing its text…"
                   : "Reading, splitting and indexing… large PDFs can take a minute."}
@@ -27,13 +27,13 @@ export function UploadRows({ uploads, onDismiss }: Props) {
             </div>
           </li>
         ) : (
-          <li key={u.id} className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" aria-hidden />
+          <li key={u.id} className="flex items-start gap-3 rounded-xl border border-danger-200 bg-danger-50 p-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-danger-600" aria-hidden />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[13px] font-semibold text-slate-900">{u.name}</p>
-              <p className="text-[12px] text-rose-700">{u.message}</p>
+              <p className="truncate text-[13px] font-semibold text-ink-900">{u.name}</p>
+              <p className="text-[12px] text-danger-700">{u.message}</p>
             </div>
-            <button type="button" onClick={() => onDismiss(u.id)} className="-my-2 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-rose-500 hover:bg-rose-100 hover:text-rose-700" aria-label={`Dismiss ${u.name}`}>
+            <button type="button" onClick={() => onDismiss(u.id)} className="-my-2 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-danger-500 hover:bg-danger-100 hover:text-danger-700" aria-label={`Dismiss ${u.name}`}>
               <X className="h-4 w-4" />
             </button>
           </li>
@@ -56,10 +56,10 @@ export function UploadChips({ uploads, onDismiss, onOpen }: Props & { onOpen: ()
       {recent.map((u) => {
         const style =
           u.status === "processing"
-            ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+            ? "border-brand-200 bg-brand-50 text-brand-700"
             : u.status === "done"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-rose-200 bg-rose-50 text-rose-700";
+              ? "border-success-200 bg-success-50 text-success-800"
+              : "border-danger-200 bg-danger-50 text-danger-700";
         const Icon = u.status === "processing" ? Loader2 : u.status === "done" ? CheckCircle2 : AlertTriangle;
         return (
           <span key={u.id} className={`inline-flex max-w-full items-center gap-1 rounded-md border pl-2 text-[13px] font-medium ${style}`}>
@@ -80,7 +80,7 @@ export function UploadChips({ uploads, onDismiss, onOpen }: Props & { onOpen: ()
       })}
     </div>
     {problems.map((u) => (
-      <p key={u.id} className="mt-1 text-[13px] text-rose-700">
+      <p key={u.id} className="mt-1 text-[13px] text-danger-700">
         {u.message!.startsWith(u.name) ? u.message : (
           <>
             <span className="font-semibold">{u.name}:</span> {u.message}

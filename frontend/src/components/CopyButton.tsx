@@ -33,7 +33,7 @@ export function CopyButton({ text, label, children, className }: Props) {
       aria-label={title}
       className={className}
     >
-      <Icon className={`${children ? "h-3.5 w-3.5" : "h-4 w-4"} ${state === "copied" ? "text-emerald-600" : state === "failed" ? "text-rose-600" : ""}`} aria-hidden />
+      <Icon className={`${children ? "h-3.5 w-3.5" : "h-4 w-4"} ${state === "copied" ? "text-success-600" : state === "failed" ? "text-danger-600" : ""}`} aria-hidden />
       {children && <span>{state === "copied" ? "Copied" : children}</span>}
     </button>
   );

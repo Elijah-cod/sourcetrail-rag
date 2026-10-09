@@ -11,12 +11,12 @@ const SUGGESTIONS = [
 export function EmptyChat({ onPick }: { onPick: (question: string) => void }) {
   return (
     <div className="mx-auto flex max-w-2xl flex-1 flex-col items-center justify-center gap-6 px-2 py-10 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
         <Network className="h-6 w-6" aria-hidden />
       </div>
       <div className="space-y-2">
-        <h1 className="font-heading text-xl font-bold text-slate-900 sm:text-2xl">Ask your documents anything</h1>
-        <p className="text-[14px] leading-relaxed text-slate-600">
+        <h1 className="font-heading text-xl font-bold text-ink-900 sm:text-2xl">Ask your documents anything</h1>
+        <p className="text-[14px] leading-relaxed text-ink-600">
           Answers come from the demo collection (FastAPI &amp; pgvector docs, a PDF and a CSV) and anything you upload —
           with every claim linked to the exact passage it came from.
         </p>
@@ -27,7 +27,7 @@ export function EmptyChat({ onPick }: { onPick: (question: string) => void }) {
             key={question}
             type="button"
             onClick={() => onPick(question)}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-left text-[13px] text-slate-700 shadow-2xs transition-colors hover:border-indigo-300 hover:bg-indigo-50/40"
+            className="rounded-xl border border-ink-200 bg-raised px-3.5 py-3 text-left text-[13px] text-ink-700 shadow-2xs transition-colors hover:border-brand-300 hover:bg-brand-50/40"
           >
             {question}
           </button>

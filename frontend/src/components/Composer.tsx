@@ -64,7 +64,7 @@ export function Composer(props: Props) {
   return (
     <div className="mx-auto w-full max-w-4xl p-3 sm:p-4 md:px-8 lg:px-12">
       <UploadChips uploads={uploads} onDismiss={onDismissUpload} onOpen={onOpenDocuments} />
-      <div className="relative rounded-2xl border border-slate-200/90 bg-white p-3 shadow-lg shadow-indigo-950/5 transition-all focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100">
+      <div className="relative rounded-2xl border border-ink-200/90 bg-raised p-3 shadow-lg shadow-brand-950/5 transition-all focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100">
         <label htmlFor="prompt-input" className="sr-only">
           Your question
         </label>
@@ -77,20 +77,20 @@ export function Composer(props: Props) {
           onPaste={onPaste}
           maxLength={1000}
           placeholder="Ask a question, paste a link, or attach a file…"
-          className="w-full resize-none bg-transparent px-2 py-1 text-[14px] leading-relaxed text-slate-800 placeholder:text-slate-500 focus:outline-none"
+          className="w-full resize-none bg-transparent px-2 py-1 text-[14px] leading-relaxed text-ink-800 placeholder:text-ink-500 focus:outline-none"
         />
         {hint && (
-          <p className="flex items-center gap-1.5 px-2 pb-1 text-[13px] text-indigo-700">
+          <p className="flex items-center gap-1.5 px-2 pb-1 text-[13px] text-brand-700">
             <Link2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
             {hint}
           </p>
         )}
-        <div className="mt-1 flex items-center justify-between border-t border-slate-100 px-1 pt-2">
+        <div className="mt-1 flex items-center justify-between border-t border-ink-100 px-1 pt-2">
           <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
-              className="flex h-10 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              className="flex h-10 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900"
               title="Add a PDF, DOCX, Markdown, TXT or CSV file (or paste a link in the box)"
             >
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Paperclip className="h-4 w-4" aria-hidden />}
@@ -110,12 +110,12 @@ export function Composer(props: Props) {
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden font-mono text-[12px] text-slate-500 md:inline">Enter to send</span>
+            <span className="hidden font-mono text-[12px] text-ink-500 md:inline">Enter to send</span>
             <button
               type="button"
               onClick={() => void send()}
               disabled={disabled || !text.trim()}
-              className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 transition-all hover:bg-indigo-700 active:scale-95 motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm shadow-brand-600/30 transition-all hover:bg-brand-700 active:scale-95 motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Send"
             >
               <ArrowUp className="h-[18px] w-[18px]" />
@@ -123,7 +123,7 @@ export function Composer(props: Props) {
           </div>
         </div>
       </div>
-      <p className="mt-2 text-center text-[12px] text-slate-500">
+      <p className="mt-2 text-center text-[12px] text-ink-500">
         Answers cite your documents. Always check important facts against the sources.
       </p>
     </div>

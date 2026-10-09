@@ -13,10 +13,10 @@ export function CitationChip({ citation, active = false, onClick }: Props) {
       onClick={onClick}
       title={`Source ${citation.n}: ${citation.document_title}${citation.section && citation.section !== citation.document_title ? ` — ${citation.section}` : ""}${citation.page !== null ? `, page ${citation.page}` : ""}`}
       aria-pressed={active}
-      className={`tap-target group mx-0.5 inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 align-baseline text-[12px] font-medium shadow-2xs transition-all ${color.chip} ${active ? "ring-2 ring-indigo-400 ring-offset-1" : ""}`}
+      className={`tap-target group mx-0.5 inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 align-baseline text-[12px] font-medium shadow-2xs transition-all ${color.chip} ${active ? "ring-2 ring-brand-400 ring-offset-1" : ""}`}
     >
       <span className={`font-bold ${color.num}`}>[{citation.n}]</span>
-      <span className="hidden truncate text-slate-700 sm:inline">{citationLabel(citation)}</span>
+      <span className="hidden truncate text-ink-700 sm:inline">{citationLabel(citation)}</span>
     </button>
   );
 }

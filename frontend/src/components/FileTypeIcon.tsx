@@ -1,6 +1,7 @@
 import { FileSpreadsheet, FileText, FileType, Globe, type LucideIcon } from "lucide-react";
 import type { SourceType } from "@/lib/types";
 
+// One hue per file type: categorical, so raw palette colours on purpose (see DESIGN.md).
 const ICONS: Record<SourceType, { icon: LucideIcon; color: string }> = {
   pdf: { icon: FileType, color: "bg-rose-50 text-rose-600 border-rose-100" },
   docx: { icon: FileText, color: "bg-sky-50 text-sky-600 border-sky-100" },

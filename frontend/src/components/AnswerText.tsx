@@ -40,11 +40,11 @@ export function AnswerText({ text, citations, onCite, activeN = null, activeClai
         return <CitationChip key={key} citation={citation} active={active} onClick={() => onCite(citation.n, claim)} />;
       }
       if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-        return <strong key={key} className="font-semibold text-slate-900">{part.slice(2, -2)}</strong>;
+        return <strong key={key} className="font-semibold text-ink-900">{part.slice(2, -2)}</strong>;
       }
       if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
         return (
-          <code key={key} className="rounded border border-indigo-100 bg-indigo-50/70 px-1.5 py-0.5 font-mono text-[12.5px] font-medium text-indigo-700">
+          <code key={key} className="rounded border border-brand-100 bg-brand-50/70 px-1.5 py-0.5 font-mono text-[12.5px] font-medium text-brand-700">
             {part.slice(1, -1)}
           </code>
         );
@@ -61,7 +61,7 @@ export function AnswerText({ text, citations, onCite, activeN = null, activeClai
           const ordered = /^\s*\d/.test(lines[0]);
           const ListTag = ordered ? "ol" : "ul";
           return (
-            <ListTag key={b} className={`space-y-1.5 pl-5 ${ordered ? "list-decimal" : "list-disc"} marker:text-slate-400`}>
+            <ListTag key={b} className={`space-y-1.5 pl-5 ${ordered ? "list-decimal" : "list-disc"} marker:text-ink-400`}>
               {lines.map((l, i) => (
                 <li key={i}>{inline(l.replace(LIST_ITEM, ""), `${b}-${i}`)}</li>
               ))}

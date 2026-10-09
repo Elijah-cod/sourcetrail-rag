@@ -177,15 +177,15 @@ export default function Home() {
             panelResult && panelResult.citations.length > 0 ? (
               <>
                 <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden />
-                  <span className="font-medium text-slate-700">
+                  <CheckCircle2 className="h-4 w-4 text-success-600" aria-hidden />
+                  <span className="font-medium text-ink-700">
                     {panelResult.citations.length} cited passage{panelResult.citations.length === 1 ? "" : "s"}
                   </span>
                 </span>
                 <button
                   type="button"
                   onClick={exportCitations}
-                  className="-my-1.5 flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                  className="-my-1.5 flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-brand-600 transition-colors hover:bg-brand-50 hover:text-brand-700"
                 >
                   <Download className="h-3.5 w-3.5" aria-hidden />
                   Export citations

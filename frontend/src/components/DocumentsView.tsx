@@ -44,8 +44,8 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 md:px-8 md:py-8">
       <div>
-        <h1 className="font-heading text-xl font-bold text-slate-900">Documents</h1>
-        <p className="mt-1 text-[13px] text-slate-600">
+        <h1 className="font-heading text-xl font-bold text-ink-900">Documents</h1>
+        <p className="mt-1 text-[13px] text-ink-600">
           Add files or web pages to your private workspace. Up to 10 documents, {MAX_UPLOAD_MB} MB each — deleted
           automatically after 24 hours of inactivity.
         </p>
@@ -57,16 +57,16 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
           type="button"
           onClick={() => fileInput.current?.click()}
           className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
-            dragging ? "border-indigo-500 bg-indigo-50" : "border-slate-300 bg-white hover:border-indigo-400 hover:bg-indigo-50/40"
+            dragging ? "border-brand-500 bg-brand-50" : "border-ink-300 bg-raised hover:border-brand-400 hover:bg-brand-50/40"
           }`}
         >
           {busy ? (
-            <Loader2 className="h-6 w-6 animate-spin text-indigo-600" aria-hidden />
+            <Loader2 className="h-6 w-6 animate-spin text-brand-600" aria-hidden />
           ) : (
-            <UploadCloud className="h-6 w-6 text-indigo-600" aria-hidden />
+            <UploadCloud className="h-6 w-6 text-brand-600" aria-hidden />
           )}
-          <span className="text-[13px] font-semibold text-slate-800">{busy ? "Indexing… add more any time" : "Upload files"}</span>
-          <span className="text-[13px] text-slate-500">PDF, DOCX, Markdown, TXT or CSV — click, or drop files anywhere</span>
+          <span className="text-[13px] font-semibold text-ink-800">{busy ? "Indexing… add more any time" : "Upload files"}</span>
+          <span className="text-[13px] text-ink-500">PDF, DOCX, Markdown, TXT or CSV — click, or drop files anywhere</span>
         </button>
         <input
           ref={fileInput}
@@ -80,9 +80,9 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
           }}
         />
 
-        <form onSubmit={submitUrl} className="flex flex-col justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-4">
-          <label htmlFor="url-input" className="flex items-center gap-2 text-[13px] font-semibold text-slate-800">
-            <Link2 className="h-4 w-4 text-indigo-600" aria-hidden />
+        <form onSubmit={submitUrl} className="flex flex-col justify-center gap-2 rounded-2xl border border-ink-200 bg-raised p-4">
+          <label htmlFor="url-input" className="flex items-center gap-2 text-[13px] font-semibold text-ink-800">
+            <Link2 className="h-4 w-4 text-brand-600" aria-hidden />
             Add a web page
           </label>
           <div className="flex gap-2">
@@ -93,37 +93,37 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://…"
-              className="h-11 min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 text-[13px] focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+              className="h-11 min-w-0 flex-1 rounded-lg border border-ink-200 bg-ink-50 px-3 text-[13px] focus:border-brand-500 focus:bg-raised focus:outline-none focus:ring-2 focus:ring-brand-100"
             />
             <button
               type="submit"
               disabled={!url.trim()}
-              className="h-11 rounded-lg bg-indigo-600 px-4 text-[13px] font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="h-11 rounded-lg bg-brand-600 px-4 text-[13px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
             >
               Add
             </button>
           </div>
-          <span className="text-[13px] text-slate-500">We keep the main article text and drop menus and footers.</span>
+          <span className="text-[13px] text-ink-500">We keep the main article text and drop menus and footers.</span>
         </form>
       </div>
 
       {/* Search */}
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" aria-hidden />
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Filter documents…"
           aria-label="Filter documents"
-          className="h-11 w-full rounded-full border border-slate-200 bg-white pl-9 pr-4 text-[13px] shadow-2xs focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+          className="h-11 w-full rounded-full border border-ink-200 bg-raised pl-9 pr-4 text-[13px] shadow-2xs focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
         />
       </div>
 
       <UploadRows uploads={uploads} onDismiss={onDismissUpload} />
 
       {documents === null ? (
-        <p className="flex items-center gap-2 text-[13px] text-slate-500">
+        <p className="flex items-center gap-2 text-[13px] text-ink-500">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading documents…
         </p>
       ) : (
@@ -154,19 +154,19 @@ function DocumentList({
 }) {
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="px-1 font-mono text-[12px] font-bold uppercase tracking-wider text-slate-500">
+      <h2 className="px-1 font-mono text-[12px] font-bold uppercase tracking-wider text-ink-500">
         {title} · {documents.length}
       </h2>
       {documents.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-slate-200 px-4 py-5 text-center text-[12.5px] text-slate-500">{empty}</p>
+        <p className="rounded-xl border border-dashed border-ink-200 px-4 py-5 text-center text-[12.5px] text-ink-500">{empty}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {documents.map((doc) => (
-            <li key={doc.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
+            <li key={doc.id} className="flex items-center gap-3 rounded-xl border border-ink-200 bg-raised p-3 shadow-2xs">
               <FileTypeIcon type={doc.source_type} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold text-slate-900">{doc.title}</p>
-                <p className="truncate text-[13px] text-slate-500">
+                <p className="truncate text-[13px] font-semibold text-ink-900">{doc.title}</p>
+                <p className="truncate text-[13px] text-ink-500">
                   {doc.source_uri ?? doc.source_type.toUpperCase()}
                   {doc.published_year ? ` · ${doc.published_year}` : ""}
                 </p>
@@ -175,7 +175,7 @@ function DocumentList({
                 <button
                   type="button"
                   onClick={() => void onDelete(doc)}
-                  className="-my-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                  className="-my-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-500 transition-colors hover:bg-danger-50 hover:text-danger-600"
                   aria-label={`Delete ${doc.title}`}
                   title="Delete"
                 >

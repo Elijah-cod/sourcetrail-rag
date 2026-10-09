@@ -1,6 +1,7 @@
 import type { Citation, Source } from "./types";
 
 // A colour per citation number, cycling, so [1] [2] [3] are easy to tell apart (as in the design).
+// Categorical, not semantic: raw palette hues on purpose (see DESIGN.md).
 const PALETTE = [
   { chip: "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200", num: "text-indigo-600", dot: "bg-indigo-500" },
   { chip: "bg-violet-50 hover:bg-violet-100 text-violet-700 border-violet-200", num: "text-violet-600", dot: "bg-violet-500" },
@@ -43,9 +44,9 @@ export function matchStrength(source: Source | undefined): Match | null {
   if (!source || !("rerank" in source.ranks)) return null;
   const pct = Math.round(source.score * 100);
   const hint = `The AI judged this passage a ${pct}% fit for your question.`;
-  if (source.score >= 0.7) return { label: "Strong match", tone: "border-emerald-200 bg-emerald-50 text-emerald-700", hint };
+  if (source.score >= 0.7) return { label: "Strong match", tone: "border-success-200 bg-success-50 text-success-700", hint };
   if (source.score >= 0.3) return { label: "Good match", tone: "border-sky-200 bg-sky-50 text-sky-700", hint };
-  return { label: "Weak match", tone: "border-amber-200 bg-amber-50 text-amber-800", hint };
+  return { label: "Weak match", tone: "border-warning-200 bg-warning-50 text-warning-800", hint };
 }
 
 const KINDS: Record<string, string> = {
