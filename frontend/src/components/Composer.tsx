@@ -80,7 +80,7 @@ export function Composer(props: Props) {
           className="w-full resize-none bg-transparent px-2 py-1 text-[14px] leading-relaxed text-slate-800 placeholder:text-slate-400 focus:outline-none"
         />
         {hint && (
-          <p className="flex items-center gap-1.5 px-2 pb-1 text-[11.5px] text-indigo-700">
+          <p className="flex items-center gap-1.5 px-2 pb-1 text-[13px] text-indigo-700">
             <Link2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
             {hint}
           </p>
@@ -110,7 +110,7 @@ export function Composer(props: Props) {
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden font-mono text-[11px] text-slate-400 md:inline">Enter to send</span>
+            <span className="hidden font-mono text-[12px] text-slate-400 md:inline">Enter to send</span>
             <button
               type="button"
               onClick={() => void send()}
@@ -123,7 +123,7 @@ export function Composer(props: Props) {
           </div>
         </div>
       </div>
-      <p className="mt-2 text-center text-[11px] text-slate-500">
+      <p className="mt-2 text-center text-[12px] text-slate-500">
         Answers cite your documents. Always check important facts against the sources.
       </p>
     </div>

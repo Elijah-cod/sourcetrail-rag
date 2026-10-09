@@ -30,7 +30,7 @@ export function Header({ onOpenNav, onToggleSources, sourcesOpen, sourcesCount }
         >
           <FolderClosed className="h-4 w-4 text-indigo-600" aria-hidden />
           <span className="truncate">Your workspace</span>
-          <span className="text-[11px] font-normal text-slate-400">· 24h</span>
+          <span className="text-[12px] font-normal text-slate-400">· 24h</span>
         </div>
       </div>
 
@@ -47,7 +47,7 @@ export function Header({ onOpenNav, onToggleSources, sourcesOpen, sourcesCount }
         >
           <BookOpen className="h-4 w-4 text-indigo-600" aria-hidden />
           <span className="hidden md:inline">Sources</span>
-          <span aria-hidden className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-100 px-1 font-mono text-[10px] font-semibold text-indigo-700">
+          <span aria-hidden className="flex h-5 min-w-5 items-center justify-center rounded-full bg-indigo-100 px-1.5 font-mono text-[12px] font-semibold text-indigo-700">
             {sourcesCount}
           </span>
         </button>

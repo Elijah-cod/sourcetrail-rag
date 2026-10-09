@@ -55,14 +55,14 @@ export function SourceInspector({ result, selected, flash, claim, onSelect }: Pr
               <FileTypeIcon type={doc.source_type} />
               <div className="min-w-0 flex-1">
                 <h3 className="line-clamp-2 text-[13px] font-bold leading-snug text-slate-900">{doc.document_title}</h3>
-                <p className="truncate text-[11.5px] text-slate-500">{documentKind(doc)}</p>
+                <p className="truncate text-[13px] text-slate-500">{documentKind(doc)}</p>
               </div>
               {link && (
                 <a
                   href={link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11.5px] font-semibold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[13px] font-semibold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-800"
                 >
                   <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                   Open page
@@ -124,7 +124,7 @@ function Passage({ citation: c, result, active, flash, claim, onSelect, register
         <span className={`font-mono text-xs font-bold ${color.num}`}>[{c.n}]</span>
         <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-slate-700">{passageLocation(c)}</span>
         {match && (
-          <span title={match.hint} className={`shrink-0 rounded-full border px-2 py-0.5 text-[10.5px] font-semibold ${match.tone}`}>
+          <span title={match.hint} className={`shrink-0 rounded-full border px-2 py-0.5 text-[12px] font-semibold ${match.tone}`}>
             {match.label}
           </span>
         )}
@@ -142,7 +142,7 @@ function Passage({ citation: c, result, active, flash, claim, onSelect, register
             <CopyButton
               label="Copy passage"
               text={() => c.snippet}
-              className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2.5 text-[11.5px] font-semibold text-indigo-600 hover:bg-indigo-50"
+              className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2.5 text-[13px] font-semibold text-indigo-600 hover:bg-indigo-50"
             >
               Copy passage
             </CopyButton>
@@ -151,7 +151,7 @@ function Passage({ citation: c, result, active, flash, claim, onSelect, register
       ) : (
         // Padding goes on the wrapper: inside a line-clamped element it would reveal part of line 3.
         <div className="relative px-2.5 pb-2">
-          <p className="line-clamp-2 text-[11.5px] leading-relaxed text-slate-500">{previewText(blocks)}</p>
+          <p className="line-clamp-2 text-[13px] leading-relaxed text-slate-500">{previewText(blocks)}</p>
         </div>
       )}
     </li>
@@ -182,7 +182,7 @@ function BlockView({ block, marks }: { block: Block; marks: Set<string> }) {
       {block.details.length > 0 && (
         <dl className="flex flex-wrap gap-1.5">
           {block.details.map((f) => (
-            <div key={f.label} className="flex gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px]">
+            <div key={f.label} className="flex gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[12px]">
               <dt className="text-slate-500">{f.label}:</dt>
               <dd className="font-medium text-slate-700">{f.value}</dd>
             </div>
@@ -191,7 +191,7 @@ function BlockView({ block, marks }: { block: Block; marks: Set<string> }) {
       )}
       {block.body.map((f, i) => (
         <div key={i}>
-          {f.label && <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{f.label}</p>}
+          {f.label && <p className="text-[12px] font-semibold uppercase tracking-wide text-slate-400">{f.label}</p>}
           <p className="break-words"><Marked text={f.value} marks={marks} /></p>
         </div>
       ))}

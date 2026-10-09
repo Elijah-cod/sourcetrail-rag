@@ -19,7 +19,7 @@ export function UploadRows({ uploads, onDismiss }: Props) {
             <Loader2 className="h-5 w-5 shrink-0 animate-spin text-indigo-600" aria-hidden />
             <div className="min-w-0">
               <p className="truncate text-[13px] font-semibold text-slate-900">{u.name}</p>
-              <p className="text-[11.5px] text-slate-600">
+              <p className="text-[13px] text-slate-600">
                 {u.kind === "link"
                   ? "Fetching the page and indexing its text…"
                   : "Reading, splitting and indexing… large PDFs can take a minute."}
@@ -62,7 +62,7 @@ export function UploadChips({ uploads, onDismiss, onOpen }: Props & { onOpen: ()
               : "border-rose-200 bg-rose-50 text-rose-700";
         const Icon = u.status === "processing" ? Loader2 : u.status === "done" ? CheckCircle2 : AlertTriangle;
         return (
-          <span key={u.id} className={`inline-flex max-w-full items-center gap-1 rounded-md border pl-2 text-[11.5px] font-medium ${style}`}>
+          <span key={u.id} className={`inline-flex max-w-full items-center gap-1 rounded-md border pl-2 text-[13px] font-medium ${style}`}>
             <button type="button" onClick={onOpen} className="flex min-h-8 min-w-0 items-center gap-1.5" title={u.message ?? "Open Documents"}>
               <Icon className={`h-3.5 w-3.5 shrink-0 ${u.status === "processing" ? "animate-spin" : ""}`} aria-hidden />
               <span className="max-w-[180px] truncate">{u.name}</span>
@@ -80,7 +80,7 @@ export function UploadChips({ uploads, onDismiss, onOpen }: Props & { onOpen: ()
       })}
     </div>
     {problems.map((u) => (
-      <p key={u.id} className="mt-1 text-[11.5px] text-rose-700">
+      <p key={u.id} className="mt-1 text-[13px] text-rose-700">
         {u.message!.startsWith(u.name) ? u.message : (
           <>
             <span className="font-semibold">{u.name}:</span> {u.message}

@@ -79,7 +79,7 @@ export function SettingsPopover({ settings, onChange }: Props) {
             </button>
           </div>
           <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium text-slate-500">Search mode</span>
+            <span className="text-[12px] font-medium text-slate-500">Search mode</span>
             <select
               ref={firstField}
               value={settings.mode}
@@ -92,10 +92,10 @@ export function SettingsPopover({ settings, onChange }: Props) {
                 </option>
               ))}
             </select>
-            <span className="text-[11px] leading-snug text-slate-500">{MODE_HELP[settings.mode]}</span>
+            <span className="text-[12px] leading-snug text-slate-500">{MODE_HELP[settings.mode]}</span>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="flex justify-between text-[11px] font-medium text-slate-500">
+            <span className="flex justify-between text-[12px] font-medium text-slate-500">
               Sources per answer
               <span className="font-mono font-bold text-indigo-600">{settings.topK}</span>
             </span>

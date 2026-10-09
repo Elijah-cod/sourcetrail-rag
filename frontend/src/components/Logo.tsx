@@ -9,7 +9,7 @@ export function Logo() {
       </div>
       <div className="flex items-baseline gap-1.5">
         <span className="font-heading text-[15px] font-bold tracking-tight text-slate-900">SourceTrail</span>
-        <span className="rounded border border-indigo-100/80 bg-indigo-50 px-1.5 py-0.5 text-[10.5px] font-semibold text-indigo-600">
+        <span className="rounded border border-indigo-100/80 bg-indigo-50 px-1.5 py-0.5 text-[12px] font-semibold text-indigo-600">
           RAG
         </span>
       </div>

@@ -95,9 +95,9 @@ function Tile({ label, value, note, good }: { label: string; value: string; note
   const tone = good === undefined ? "text-slate-900" : good ? "text-emerald-700" : "text-amber-700";
   return (
     <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
-      <span className="text-[11.5px] font-medium text-slate-500">{label}</span>
+      <span className="text-[13px] font-medium text-slate-500">{label}</span>
       <span className={`font-heading text-xl font-bold ${tone}`}>{value}</span>
-      {note && <span className="text-[11.5px] text-slate-500">{note}</span>}
+      {note && <span className="text-[13px] text-slate-500">{note}</span>}
     </div>
   );
 }
@@ -371,7 +371,7 @@ function Retrieval({ results }: { results: RetrievalResults | null }) {
       <p className="text-[12px] text-slate-500 sm:hidden">Swipe the table sideways to see every column.</p>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full min-w-[560px] text-left text-[12.5px] tabular-nums">
-          <thead className="border-b border-slate-200 bg-slate-50 text-[11.5px] font-semibold text-slate-500">
+          <thead className="border-b border-slate-200 bg-slate-50 text-[13px] font-semibold text-slate-500">
             <tr>
               <th className="px-3 py-2">Mode</th>
               <th className="px-3 py-2 text-right" title="Share of questions with a correct passage first">Recall@1</th>
@@ -386,7 +386,7 @@ function Retrieval({ results }: { results: RetrievalResults | null }) {
               <tr key={m.mode} className={m.mrr === best ? "bg-indigo-50/50" : undefined}>
                 <td className="px-3 py-2 font-medium text-slate-800">
                   {MODE_LABELS[m.mode] ?? m.mode}
-                  {m.mode === "hybrid_rerank" && <span className="ml-1.5 text-[11px] font-normal text-slate-500">(used for answers)</span>}
+                  {m.mode === "hybrid_rerank" && <span className="ml-1.5 text-[12px] font-normal text-slate-500">(used for answers)</span>}
                 </td>
                 <td className="px-3 py-2 text-right">{(m.recall_at_1 * 100).toFixed(0)}%</td>
                 <td className="px-3 py-2 text-right">{(m.recall_at_5 * 100).toFixed(0)}%</td>

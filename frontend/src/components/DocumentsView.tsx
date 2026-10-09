@@ -66,7 +66,7 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
             <UploadCloud className="h-6 w-6 text-indigo-600" aria-hidden />
           )}
           <span className="text-[13px] font-semibold text-slate-800">{busy ? "Indexing… add more any time" : "Upload files"}</span>
-          <span className="text-[11.5px] text-slate-500">PDF, DOCX, Markdown, TXT or CSV — click, or drop files anywhere</span>
+          <span className="text-[13px] text-slate-500">PDF, DOCX, Markdown, TXT or CSV — click, or drop files anywhere</span>
         </button>
         <input
           ref={fileInput}
@@ -103,7 +103,7 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
               Add
             </button>
           </div>
-          <span className="text-[11.5px] text-slate-500">We keep the main article text and drop menus and footers.</span>
+          <span className="text-[13px] text-slate-500">We keep the main article text and drop menus and footers.</span>
         </form>
       </div>
 
@@ -154,7 +154,7 @@ function DocumentList({
 }) {
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="px-1 font-mono text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+      <h2 className="px-1 font-mono text-[12px] font-bold uppercase tracking-wider text-slate-400">
         {title} · {documents.length}
       </h2>
       {documents.length === 0 ? (
@@ -166,7 +166,7 @@ function DocumentList({
               <FileTypeIcon type={doc.source_type} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-semibold text-slate-900">{doc.title}</p>
-                <p className="truncate text-[11.5px] text-slate-500">
+                <p className="truncate text-[13px] text-slate-500">
                   {doc.source_uri ?? doc.source_type.toUpperCase()}
                   {doc.published_year ? ` · ${doc.published_year}` : ""}
                 </p>

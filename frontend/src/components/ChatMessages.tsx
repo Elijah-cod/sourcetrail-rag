@@ -32,7 +32,7 @@ export function ChatMessages({ messages, onCite, active, onRegenerate, busy }: P
         m.role === "user" ? (
           <div key={m.id} className="flex max-w-[85%] items-start gap-3 self-end sm:max-w-2xl">
             <div className="flex flex-col items-end gap-1.5">
-              <span className="text-[11px] font-medium text-slate-500">You</span>
+              <span className="text-[12px] font-medium text-slate-500">You</span>
               <div className="whitespace-pre-wrap break-words rounded-2xl rounded-tr-sm bg-indigo-600 px-4 py-3 text-[14.5px] leading-relaxed text-white shadow-sm shadow-indigo-600/15">
                 {m.text}
               </div>
@@ -76,14 +76,14 @@ function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, 
             <span className="font-heading text-[14px] font-bold text-slate-900">SourceTrail</span>
             {message.status === "done" && message.result && <StatusPill result={message.result} onCite={onCite} />}
             {message.result?.filters.year && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600">
+              <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[12px] font-medium text-slate-600">
                 <CalendarRange className="h-3 w-3" aria-hidden />
                 {message.result.filters.year} documents
               </span>
             )}
           </div>
           {message.status !== "loading" && (
-            <div className="-my-2 flex items-center">
+            <div className="-my-2 ml-auto flex items-center">
               {message.result && (
                 <CopyButton
                   label="Copy answer with sources"
@@ -154,7 +154,7 @@ function StatusPill({ result, onCite }: { result: QueryResult; onCite: (n: numbe
       <button
         type="button"
         onClick={() => onCite(result.citations[0].n)}
-        className="tap-target inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-emerald-700 shadow-2xs transition-colors hover:bg-emerald-100/70"
+        className="tap-target inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[13px] font-semibold text-emerald-700 shadow-2xs transition-colors hover:bg-emerald-100/70"
       >
         <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
         Grounded in {n} source{n === 1 ? "" : "s"}
@@ -169,7 +169,7 @@ function StatusPill({ result, onCite }: { result: QueryResult; onCite: (n: numbe
         ? "Uncited — check the sources"
         : "No supporting sources";
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-amber-800">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[13px] font-semibold text-amber-800">
       <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
       {text}
     </span>
@@ -188,9 +188,9 @@ function Timings({ result }: { result: QueryResult }) {
     <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 sm:gap-3">
       {cards.map((c) => (
         <div key={c.label} className={`flex flex-col rounded-xl border p-2.5 sm:p-3 ${c.tone}`}>
-          <span className="text-[11px] font-medium text-slate-500">{c.label}</span>
+          <span className="text-[12px] font-medium text-slate-500">{c.label}</span>
           <span className="font-heading text-sm font-bold sm:text-base">{formatMs(c.value!)}</span>
-          <span className="hidden text-[10.5px] text-slate-500 sm:block">{c.note}</span>
+          <span className="hidden text-[12px] text-slate-500 sm:block">{c.note}</span>
         </div>
       ))}
     </div>
@@ -206,13 +206,13 @@ function Referenced({ result, onCite }: { result: QueryResult; onCite: (n: numbe
   if (firstPerDocument.size === 0) return null;
   return (
     <div className="flex flex-wrap items-center gap-x-1.5 gap-y-3 pt-1">
-      <span className="mr-1 text-[11.5px] font-medium text-slate-500">Referenced:</span>
+      <span className="mr-1 text-[13px] font-medium text-slate-500">Referenced:</span>
       {[...firstPerDocument.values()].map((c) => (
         <button
           key={c.document_id}
           type="button"
           onClick={() => onCite(c.n)}
-          className="tap-target inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+          className="tap-target inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[13px] font-medium text-slate-700 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
         >
           <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${citationColor(c.n).dot}`} />
           <span className="truncate">{c.document_title}</span>
