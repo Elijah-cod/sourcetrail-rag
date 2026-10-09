@@ -1,4 +1,4 @@
-import { Network } from "lucide-react";
+import { LogoMark } from "./Logo";
 
 const SUGGESTIONS = [
   "How does SourceTrail combine vector and keyword search?",
@@ -11,9 +11,7 @@ const SUGGESTIONS = [
 export function EmptyChat({ onPick }: { onPick: (question: string) => void }) {
   return (
     <div className="mx-auto flex max-w-2xl flex-1 flex-col items-center justify-center gap-6 px-2 py-10 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
-        <Network className="h-6 w-6" aria-hidden />
-      </div>
+      <LogoMark className="h-16 w-16" />
       <div className="space-y-2">
         <h1 className="font-heading text-xl font-bold text-ink-900 sm:text-2xl">Ask your documents anything</h1>
         <p className="text-[14px] leading-relaxed text-ink-600">

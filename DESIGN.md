@@ -87,7 +87,15 @@ only sign an upload is running). JavaScript scrolling uses `scrollBehavior()` fr
 - Live status (`role="status"` / `aria-live`) for loading stages and upload progress.
 - Test at 375 × 812 and 1440 × 900: no page-level horizontal scroll.
 
+## Logo
+
+The app mark lives in `frontend/public/sourcetrail-icon.svg`; `app/icon.svg`, `app/favicon.ico`
+and `app/apple-icon.png` are the browser-tab and home-screen copies. Regenerate all of them
+together if the artwork changes.
+
 ## Avoid
 
 Gradients on icons or avatars, custom scrollbars, coloured side stripes, rows of pastel metric
-cards, new hues outside the tokens, and text smaller than 12px.
+cards, new hues outside the tokens, and text smaller than 12px. The one exception is the logo
+artwork itself (`frontend/public/sourcetrail-icon.svg`, rendered by `LogoMark`): use it as
+supplied, at 32px in the header and assistant avatar, and don't redraw or recolour it.

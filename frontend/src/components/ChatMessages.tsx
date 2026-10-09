@@ -1,9 +1,10 @@
 "use client";
 
-import { AlertTriangle, CalendarRange, Network, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CalendarRange, RefreshCw, ShieldCheck } from "lucide-react";
 import type { Stage } from "@/lib/api";
 import { answerWithSources } from "@/lib/clipboard";
 import { CopyButton } from "./CopyButton";
+import { LogoMark } from "./Logo";
 import { useEffect, useRef } from "react";
 import type { AssistantMessage, Message } from "@/hooks/useChat";
 import { citationColor } from "@/lib/citations";
@@ -68,9 +69,7 @@ type BubbleProps = {
 function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, busy }: BubbleProps) {
   return (
     <div className="flex w-full items-start gap-3 self-start sm:gap-3.5">
-      <div className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 sm:flex">
-        <Network className="h-4 w-4" aria-hidden />
-      </div>
+      <LogoMark className="hidden h-8 w-8 sm:block" />
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
