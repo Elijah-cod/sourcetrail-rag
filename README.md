@@ -112,13 +112,24 @@ billing, an idle app scales to zero and costs nothing. It needs a billing accoun
 3. Region `us-central1` (or another Tier 1 region near your Neon database), **Allow public
    access**, billing **Request-based**, minimum instances 0, maximum instances 1.
 4. Container: port 8080, memory 1 GiB, 1 CPU, startup CPU boost on. Add the variables
-   `DATABASE_URL` (Neon), `LLM_API_KEY` (Groq), `COOKIE_SECURE=true` and
-   `TRUST_FORWARDED_FOR=true` (Google's front end appends the real client address).
+   `DATABASE_URL` (Neon's connection string, starting `postgresql://`), `LLM_API_KEY` (Groq),
+   `COOKIE_SECURE=true`, `TRUST_FORWARDED_FOR=true` (Google's front end appends the real client
+   address) and `MODEL_THREADS=1` (one thread per vCPU: with one thread per *host* CPU, ONNX
+   made reranking about five times slower).
 
 Every push to `main` is then built and deployed by Cloud Build; open the `https://…run.app`
 address Cloud Run shows. The first visit after the app has been idle waits while it starts
-and loads the models. Stored images past Artifact Registry's free 0.5 GB cost about $0.10
+and loads the models (the image loads them before serving, so no question pays for it; the
+sidebar shows "Starting up…" meanwhile). Stored images past Artifact Registry's free 0.5 GB cost about $0.10
 per GB a month, so delete old ones now and then.
+
+**Monitoring.** Each question prints one JSON line, which Cloud Logging stores as a
+structured entry: its outcome (`status`), `total_ms` and each stage (`embed_ms`, `search_ms`,
+`rerank_ms`, `facets_ms`, `generation_ms`...), never the question itself. Each start prints an
+`event: "startup"` line with the model load times. In Logs Explorer, filter on
+`jsonPayload.event="query"`; under Logging > Log-based metrics, a distribution metric on
+`jsonPayload.total_ms` charts answer times and can drive an alert. `/health` reports the
+database and the start-up times.
 
 **Alternative: Hugging Face Spaces.** Docker Spaces now need a PRO plan. With one, create a
 Docker Space, add the same four settings in its settings, then add the GitHub secret

@@ -13,10 +13,12 @@ export const MODE_LABELS: Record<Mode, string> = {
 };
 
 const MODE_HELP: Record<Mode, string> = {
-  hybrid_rerank: "Best quality: both searches, then a cross-encoder re-scores the top results (~1 s slower).",
-  hybrid: "Vector + keyword search merged with Reciprocal Rank Fusion. Fast.",
-  vector: "Meaning-based search only (pgvector embeddings).",
-  keyword: "Exact-word search only (Postgres full-text).",
+  hybrid_rerank:
+    "Recommended. Both searches, then a cross-encoder re-reads the top 15 results (about half a second more). " +
+    "It is also what splits multi-part questions and declines questions the documents can't answer before asking the AI.",
+  hybrid: "Vector + keyword search merged with Reciprocal Rank Fusion. Fastest; no multi-part search or early decline.",
+  vector: "Meaning-based search only (pgvector embeddings). Fast; no multi-part search or early decline.",
+  keyword: "Exact-word search only (Postgres full-text). Good for codes and names, weak on paraphrases.",
 };
 
 type Props = { settings: Settings; onChange: (settings: Settings) => void };

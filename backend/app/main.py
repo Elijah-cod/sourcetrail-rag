@@ -4,6 +4,7 @@ import asyncio
 import ctypes
 import ctypes.util
 import logging
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -16,8 +17,25 @@ from app.api import router
 from app.config import get_settings
 from app.limits import RateLimited
 from app.maintenance import cleanup
+from app.monitoring import log_event
 
 log = logging.getLogger("sourcetrail")
+
+# How long this server took to get ready (shown by /health). Empty if models load lazily.
+STARTUP: dict[str, float] = {}
+
+
+def preload_models() -> dict[str, float]:
+    """Load the embedder and reranker now, timing each (later calls reuse them)."""
+    from app.embed import get_embedder
+    from app.rerank import get_reranker
+
+    loaded = {}
+    for name, load in (("embedder_ms", get_embedder), ("reranker_ms", get_reranker)):
+        started = time.perf_counter()
+        load()
+        loaded[name] = round((time.perf_counter() - started) * 1000)
+    return loaded
 
 
 async def cleanup_forever(interval_minutes: int, ttl_hours: int) -> None:
@@ -39,8 +57,15 @@ async def cleanup_forever(interval_minutes: int, ttl_hours: int) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    started = time.perf_counter()
     db.open_pool()
     settings = get_settings()
+    if settings.preload_models:
+        # Before serving: Cloud Run holds the first request until this is done, and gives the
+        # container extra CPU while it starts, so this is the cheapest moment to load them.
+        STARTUP.update(await asyncio.to_thread(preload_models))
+        STARTUP["ready_ms"] = round((time.perf_counter() - started) * 1000)
+        log_event("startup", **STARTUP)
     task = None
     if settings.cleanup_enabled:
         task = asyncio.create_task(cleanup_forever(settings.cleanup_interval_minutes,
@@ -85,7 +110,8 @@ def rate_limited(request: Request, exc: RateLimited) -> JSONResponse:
 @app.get("/health")
 @app.get("/api/health")
 def health() -> dict:
-    return {"status": "ok", "database": "ok" if db.ping() else "down"}
+    """`startup` says how long this server took to load its models (empty: they load on first use)."""
+    return {"status": "ok", "database": "ok" if db.ping() else "down", "startup": STARTUP}
 
 
 # Serve the built frontend (if it has been built). Mounted last, so /api/* and /health

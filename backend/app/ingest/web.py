@@ -9,6 +9,7 @@ cloud metadata at 169.254.169.254, ...). This is called SSRF
 import ipaddress
 import re
 import socket
+import time
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -21,6 +22,7 @@ from app.ingest.models import ExtractedDocument, ExtractionError, guess_year
 MAX_BYTES = 5 * 1024 * 1024      # refuse pages bigger than 5 MB
 TIMEOUT_SECONDS = 10
 MAX_REDIRECTS = 5
+MAX_SECONDS = 20                 # for the whole download: a server dripping bytes can't hold us
 USER_AGENT = "sourcetrail-rag/0.1 (+https://github.com/Elijah-cod/sourcetrail-rag)"
 MIN_WORDS = 20                   # less than this isn't a real article (e.g. just a menu)
 MIN_COVERAGE = 0.5               # trafilatura must keep at least half the main content's words...
@@ -56,26 +58,104 @@ def fetch_html(url: str) -> tuple[str, str]:
 
     Returns (final_url, html).
     """
-    with httpx.Client(timeout=TIMEOUT_SECONDS, headers={"User-Agent": USER_AGENT}) as client:
+    return _fetch(url, accept=("html",), what="an HTML page")
+
+
+def _fetch(url: str, accept: tuple[str, ...], what: str, headers: dict | None = None) -> tuple[str, str]:
+    """GET `url` as text: public addresses only (checked again on every redirect), at most
+    MAX_BYTES, and only a content type containing one of `accept`."""
+    started = time.monotonic()
+    with httpx.Client(timeout=TIMEOUT_SECONDS, headers={"User-Agent": USER_AGENT, **(headers or {})}) as client:
         for _ in range(MAX_REDIRECTS + 1):
             validate_url(url)
             with client.stream("GET", url) as response:
+                # The name was checked above, but DNS can answer differently a moment later
+                # ("DNS rebinding"): check the address actually connected to as well.
+                _check_peer(response)
                 if response.is_redirect:
                     url = urljoin(url, response.headers.get("location", ""))
                     continue
+                if response.status_code == 404:
+                    raise ExtractionError("That page wasn't found (HTTP 404).")
                 if response.status_code >= 400:
                     raise ExtractionError(f"The page returned HTTP {response.status_code}.")
                 content_type = response.headers.get("content-type", "")
-                if "html" not in content_type:
-                    raise ExtractionError(f"Expected an HTML page but got '{content_type or 'unknown'}'.")
+                if not any(kind in content_type for kind in accept):
+                    raise ExtractionError(f"Expected {what} but got '{content_type or 'unknown'}'.")
 
                 body = bytearray()
                 for piece in response.iter_bytes():
                     body.extend(piece)
                     if len(body) > MAX_BYTES:
                         raise ExtractionError("The page is larger than 5 MB.")
+                    if time.monotonic() - started > MAX_SECONDS:
+                        raise ExtractionError(f"The page took more than {MAX_SECONDS} seconds to download.")
                 return url, body.decode(response.encoding or "utf-8", errors="replace")
     raise ExtractionError("Too many redirects.")
+
+
+def _check_peer(response: httpx.Response) -> None:
+    stream = response.extensions.get("network_stream")
+    peer = stream.get_extra_info("server_addr") if stream is not None else None
+    if peer and not ipaddress.ip_address(peer[0]).is_global:
+        raise ExtractionError("That URL points to a private or local address, which isn't allowed.")
+
+
+# ---------- GitHub ----------
+# A repository's page is mostly GitHub's own interface; the README is rendered into it, but the
+# generic extractor kept the description and lost most of the README, code blocks included
+# ("uv run python -m app.migrate" couldn't be found). So GitHub links are read as Markdown
+# straight from GitHub: the README for a repository or folder, the raw file for a .md file.
+
+_GITHUB = re.compile(r"^/(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+?)(?:\.git)?"
+                     r"(?:/(?P<kind>tree|blob)/(?P<ref>[^/]+)(?:/(?P<path>.*))?)?/?$")
+_MARKDOWN_FILE = re.compile(r"\.(?:md|markdown|mdx|txt|rst)$", re.IGNORECASE)
+
+
+def github_source(url: str) -> tuple[str, str] | None:
+    """For a github.com repository, folder or Markdown file link: (URL of its raw Markdown, file
+    name), else None (issues, pull requests, other files: read as ordinary pages)."""
+    parsed = urlparse(url)
+    if (parsed.hostname or "").lower() not in ("github.com", "www.github.com"):
+        return None
+    match = _GITHUB.match(parsed.path)
+    if not match or match["owner"] in ("orgs", "settings", "topics", "search", "marketplace"):
+        return None
+    owner, repo, kind, ref, path = match["owner"], match["repo"], match["kind"], match["ref"], match["path"]
+    api = f"https://api.github.com/repos/{owner}/{repo}"
+    if kind is None:
+        return f"{api}/readme", "README.md"
+    if kind == "tree":
+        folder = f"/{path.strip('/')}" if path and path.strip("/") else ""
+        return f"{api}/readme{folder}?ref={ref}", "README.md"
+    if path and _MARKDOWN_FILE.search(path):
+        return f"https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{path}", path.rsplit("/", 1)[-1]
+    return None
+
+
+def extract_github(url: str) -> ExtractedDocument | None:
+    """A GitHub repository/folder/Markdown link read as its Markdown, or None if it isn't one."""
+    source = github_source(url)
+    if source is None:
+        return None
+    raw_url, filename = source
+    try:
+        _, text = _fetch(raw_url, accept=("text", "json", "markdown", "octet-stream", "vnd.github"),
+                         what="a README", headers={"Accept": "application/vnd.github.raw+json"})
+    except ExtractionError as exc:
+        if "404" in str(exc):
+            raise ExtractionError("That GitHub repository or folder has no README that can be read "
+                                  "(private repositories can't be added).") from exc
+        raise
+    from app.ingest.files import extract_markdown
+    doc = extract_markdown(filename, text.encode())
+    parsed = urlparse(url)
+    owner_repo = "/".join(parsed.path.strip("/").split("/")[:2])
+    if doc.title in (None, "", filename, filename.rsplit(".", 1)[0]):
+        doc.title = f"{owner_repo} ({filename})"
+    doc.source_type = "url"
+    doc.diagnostics = {"extractor": "github", "raw_url": raw_url, "retained_chars": len(text)}
+    return doc
 
 
 # ---------- extraction quality ----------
@@ -262,5 +342,9 @@ def _html_title(html: str) -> str | None:
 
 def extract_url(url: str) -> ExtractedDocument:
     """Fetch + extract. This is what the API will call."""
-    final_url, html = fetch_html(url.strip())
+    url = url.strip()
+    github = extract_github(url)
+    if github is not None:
+        return github
+    final_url, html = fetch_html(url)
     return extract_html(final_url, html)

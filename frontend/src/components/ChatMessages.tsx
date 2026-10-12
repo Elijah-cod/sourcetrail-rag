@@ -190,23 +190,39 @@ function StatusPill({ result, onCite }: { result: QueryResult; onCite: (n: numbe
   );
 }
 
-/** Real per-stage timings from the backend (replacing the design's sample numbers). */
+/** Stages in the order they run. Several can be absent: each question only goes through some. */
+const STAGES: { label: string; keys: string[]; note: string }[] = [
+  { label: "Embed", keys: ["embed_ms"], note: "turning the question into a vector" },
+  { label: "Search", keys: ["search_ms"], note: "vector + keyword search in the database" },
+  { label: "Rerank", keys: ["rerank_ms"], note: "cross-encoder reranking of the top results" },
+  { label: "Codes", keys: ["lookup_ms"], note: "exact lookup of codes such as SEC-014" },
+  { label: "Parts", keys: ["facets_ms"], note: "a separate search for each part of a multi-part question" },
+  { label: "Answer", keys: ["generation_ms"], note: "the LLM writing the answer" },
+  { label: "Follow-up", keys: ["gap_search_ms", "gap_answer_ms"], note: "searching again for a part the first answer missed" },
+  { label: "Recheck", keys: ["recheck_ms"], note: "checking a 'not covered' claim against the sources" },
+];
+
+/** Real per-stage timings from the backend, and their total. */
 function Timings({ result }: { result: QueryResult }) {
-  const stages = [
-    { label: "Search", value: result.timings.search_ms, note: "vector + keyword search" },
-    { label: "Rerank", value: result.timings.rerank_ms, note: "cross-encoder reranking" },
-    { label: "Answer", value: result.timings.generation_ms, note: "LLM answer and checks" },
-  ].filter((s) => s.value !== undefined);
+  const stages = STAGES.map((stage) => {
+    const values = stage.keys.map((key) => result.timings[key]).filter((v) => v !== undefined);
+    return { ...stage, value: values.length ? values.reduce((a, b) => a + b, 0) : undefined };
+  }).filter((s): s is typeof s & { value: number } => s.value !== undefined);
   if (stages.length === 0) return null;
+  const total = stages.reduce((sum, s) => sum + s.value, 0);
   // One quiet line of figures: useful for debugging, not the point of the answer.
   return (
     <dl className="flex flex-wrap gap-x-5 gap-y-1 border-t border-ink-100 pt-3 text-[13px]">
       {stages.map((s) => (
         <div key={s.label} className="flex items-baseline gap-1.5" title={s.note}>
           <dt className="text-ink-500">{s.label}</dt>
-          <dd className="font-mono font-semibold tabular-nums text-ink-800">{formatMs(s.value!)}</dd>
+          <dd className="font-mono font-semibold tabular-nums text-ink-800">{formatMs(s.value)}</dd>
         </div>
       ))}
+      <div className="flex items-baseline gap-1.5" title="all stages above">
+        <dt className="text-ink-500">Total</dt>
+        <dd className="font-mono font-semibold tabular-nums text-ink-800">{formatMs(total)}</dd>
+      </div>
     </dl>
   );
 }

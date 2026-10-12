@@ -31,7 +31,7 @@ export default function Home() {
 
   const [addingLinks, setAddingLinks] = useState(false);
 
-  const online = useHealth();
+  const health = useHealth();
   const docs = useDocuments();
   const chat = useChat();
   const recent = useRecentQuestions();
@@ -119,7 +119,7 @@ export default function Home() {
           documentCount={docs.documents?.length ?? null}
           recentQuestions={recent.questions}
           onPickRecent={(q) => void ask(q)}
-          online={online}
+          health={health}
         />
         <main className="relative flex flex-1 flex-col justify-between overflow-hidden bg-surface">
           {view === "chat" && (

@@ -1,6 +1,9 @@
 """Application settings, read from environment variables (and a local .env file)."""
 
+import math
+import os
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -25,6 +28,14 @@ class Settings(BaseSettings):
     # batch took the models to 1.3 GB, at 4 per batch to 0.4 GB (with ONNX's memory arena
     # off, see embed.py), at the same speed. Small batches fit a 512 MB server.
     model_batch_size: int = 4
+    # CPU threads per model. 0 = the CPUs this container may actually use (see cpu_threads()).
+    # ONNX otherwise starts one thread per CPU of the *host*: on a 1-vCPU Cloud Run instance
+    # that is dozens of threads time-sharing one CPU, and reranking 30 passages took 5 s
+    # instead of under 1 s (16 threads on one core measured 16x slower than 1).
+    model_threads: int = 0
+    # Load both models before taking the first request (the Docker image turns this on). A cold
+    # start then pays for them once, up front, instead of inside somebody's first question.
+    preload_models: bool = False
 
     # LLM: any OpenAI-compatible chat API. Default: Groq's free tier.
     # Local alternative (Ollama): LLM_BASE_URL=http://localhost:11434/v1  LLM_MODEL=llama3.2
@@ -67,3 +78,28 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def cpu_threads() -> int:
+    """Threads for the models: MODEL_THREADS if set, else the container's CPU quota or CPU count."""
+    configured = get_settings().model_threads
+    if configured > 0:
+        return configured
+    available = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 1)
+    quota = _cgroup_cpu_quota()
+    return max(1, min(available, quota) if quota else available)
+
+
+def _cgroup_cpu_quota() -> int | None:
+    """CPUs allowed by the container's cgroup (Docker --cpus, Kubernetes limits), if limited."""
+    try:  # cgroup v2: "200000 100000" = 2 CPUs, "max 100000" = no limit
+        quota, period = Path("/sys/fs/cgroup/cpu.max").read_text().split()
+        return None if quota == "max" else max(1, math.ceil(int(quota) / int(period)))
+    except (OSError, ValueError):
+        pass
+    try:  # cgroup v1
+        quota = int(Path("/sys/fs/cgroup/cpu/cpu.cfs_quota_us").read_text())
+        period = int(Path("/sys/fs/cgroup/cpu/cpu.cfs_period_us").read_text())
+        return None if quota <= 0 else max(1, math.ceil(quota / period))
+    except (OSError, ValueError):
+        return None

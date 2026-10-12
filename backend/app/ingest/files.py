@@ -3,6 +3,7 @@
 import csv
 import io
 import re
+import zipfile
 from pathlib import PurePath
 
 import docx
@@ -26,6 +27,7 @@ def extract_file(filename: str, data: bytes) -> ExtractedDocument:
     extractor = extractors.get(suffix)
     if extractor is None:
         raise ExtractionError(f"Unsupported file type '{suffix or filename}'. Use PDF, DOCX, MD, TXT or CSV.")
+    check_contents(filename, suffix, data)
 
     doc = extractor(filename, data)
     doc.sections = [s for s in doc.sections if s.text]   # drop empty sections
@@ -34,6 +36,39 @@ def extract_file(filename: str, data: bytes) -> ExtractedDocument:
     if doc.published_year is None:
         doc.published_year = guess_year(filename)
     return doc
+
+
+# Limits for what a visitor can make the server unpack. A 10 MB DOCX is a ZIP that could expand
+# to gigabytes ("zip bomb"); a PDF of tiny blank pages could hold tens of thousands of them.
+MAX_UNZIPPED_MB = 50
+MAX_ZIP_RATIO = 100            # real DOCX files compress 3-10x; text-only ones up to ~30x
+MAX_ZIP_ENTRIES = 2000
+
+
+def check_contents(filename: str, suffix: str, data: bytes) -> None:
+    """The file is what its name says, judged by its bytes, and safe to unpack."""
+    if suffix == ".pdf":
+        if b"%PDF-" not in data[:1024]:
+            raise ExtractionError(f"'{filename}' isn't a PDF (its contents don't start like one).")
+    elif suffix == ".docx":
+        if not data.startswith(b"PK\x03\x04"):
+            raise ExtractionError(f"'{filename}' isn't a DOCX file (Word's .docx format is a ZIP archive). "
+                                  "Old .doc files need to be saved as .docx first.")
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                entries = archive.infolist()
+                names = {entry.filename for entry in entries}
+                unzipped = sum(entry.file_size for entry in entries)
+        except zipfile.BadZipFile as exc:
+            raise ExtractionError(f"Could not read DOCX '{filename}': {exc}") from exc
+        if "word/document.xml" not in names:
+            raise ExtractionError(f"'{filename}' is a ZIP archive but not a Word document.")
+        if (len(entries) > MAX_ZIP_ENTRIES or unzipped > MAX_UNZIPPED_MB * 1024 * 1024
+                or unzipped > MAX_ZIP_RATIO * max(len(data), 1)):
+            raise ExtractionError(f"'{filename}' expands to too much data to be processed safely.")
+    elif b"\x00" in data[:8192] and not data.startswith((b"\xff\xfe", b"\xfe\xff")):
+        # Text files (MD, TXT, CSV) don't contain NUL bytes, unless they are UTF-16.
+        raise ExtractionError(f"'{filename}' looks like a binary file, not {suffix[1:].upper()} text.")
 
 
 def _stem(filename: str) -> str:

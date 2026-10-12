@@ -18,7 +18,7 @@ import psycopg
 
 from app.config import get_settings
 from app.query import parse_query
-from app.retrieve import MODES, retrieve
+from app.retrieve import FUSED_LIMIT, MODES, retrieve
 from app.search import SearchHit
 from app.store import DEMO_WORKSPACE_ID
 
@@ -94,7 +94,7 @@ def evaluate(conn, embedder, reranker, questions: list[Question]) -> tuple[list[
             start = time.perf_counter()
             parsed = parse_query(q.question)          # same query processing as the real app
             hits = retrieve(conn, embedder, parsed.text, [DEMO_WORKSPACE_ID], mode=mode,
-                            reranker=reranker, limit=30, top_k=K, year=parsed.year)[:K]
+                            reranker=reranker, limit=FUSED_LIMIT, top_k=K, year=parsed.year)[:K]
             elapsed = time.perf_counter() - start
             if mode == "hybrid_rerank":
                 top_scores["answerable" if q.answerable else "unanswerable"].append(

@@ -104,3 +104,17 @@ def test_earliest_and_fewest_ask_for_the_whole_table():
     from app.tables import _aggregated_words
     assert {"inspection", "unit"} <= _aggregated_words("Which asset has the earliest inspection date, and which "
                                                        "category has the fewest units?")
+
+
+def test_names_are_put_back_into_a_part_that_lost_them():
+    """'its travel time' alone matched nothing, so the answer was told the Vesper's travel time had
+    no passage although the passage saying it arrives 'after 47 minutes' was a source."""
+    from app.facets import names, with_context
+    question = ("List every item in the Sable Ridge departure checklist, and state when the Vesper departs, "
+                "from where, on which days, its travel time, and required access token.")
+    assert names(question) == ["Sable Ridge", "Vesper"]
+    assert with_context("its travel time", question) == "its travel time (Sable Ridge, Vesper)"
+    # A part that already names its subject keeps its wording; sentence-initial words aren't names.
+    assert with_context("state when the Vesper departs", question) == "state when the Vesper departs"
+    assert names("What is SEC-014? And who owns it?") == ["SEC-014"]
+    assert with_context("issue date", "what is the issue date?") == "issue date"

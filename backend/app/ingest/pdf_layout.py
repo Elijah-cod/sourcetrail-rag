@@ -48,8 +48,13 @@ class PdfLayout:
     metadata_title: str | None       # what the PDF's own metadata says (often junk)
 
 
+MAX_PAGES = 300     # reading a page costs CPU and memory; a visitor's file shouldn't tie up the server
+
+
 def read_pdf(data: bytes) -> PdfLayout:
     with pdfplumber.open(io.BytesIO(data)) as pdf:
+        if len(pdf.pages) > MAX_PAGES:
+            raise ValueError(f"it has {len(pdf.pages)} pages; the limit is {MAX_PAGES}")
         metadata_title = (pdf.metadata or {}).get("Title")
         page_lines = [(_lines(page), page.height) for page in pdf.pages]
 

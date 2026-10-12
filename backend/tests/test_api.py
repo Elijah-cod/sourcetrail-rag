@@ -1,3 +1,4 @@
+import io
 import json
 
 import pytest
@@ -131,6 +132,8 @@ def test_add_url(client, monkeypatch):
     monkeypatch.setattr("app.api.extract_url", lambda url: doc)
     response = client.post("/api/sources/url", json={"url": "https://example.com/docs"})
     assert response.status_code == 201 and response.json()["title"] == "FastAPI Docs"
+    # 27 characters: the visitor is told so, instead of finding out from empty answers later.
+    assert response.json()["characters"] == 27 and "Only 27 characters" in response.json()["warning"]
     listed = [d for d in client.get("/api/documents").json() if not d["is_demo"]]
     assert listed[0]["source_uri"] == "https://example.com/docs"
 
@@ -254,8 +257,23 @@ def test_top_k_limits_sources_in_every_mode(client):
 def test_timings_are_reported(client):
     upload(client)
     timings = client.post("/api/query", json={"question": "Why did revenue decline?"}).json()["timings"]
-    assert {"search_ms", "rerank_ms", "generation_ms"} <= set(timings)
+    assert {"embed_ms", "search_ms", "rerank_ms", "generation_ms"} <= set(timings)
     assert all(v >= 0 for v in timings.values())
+
+
+def test_each_question_is_logged_with_its_timings_but_not_its_text(client, monkeypatch):
+    from app import monitoring
+
+    printed = io.StringIO()
+    monkeypatch.setattr(monitoring._handler, "stream", printed)
+    upload(client)
+    client.post("/api/query", json={"question": "Why did revenue decline?"})
+    logged = [json.loads(line) for line in printed.getvalue().splitlines()]
+    logged = [line for line in logged if line["event"] == "query"]
+    assert len(logged) == 1
+    assert logged[0]["status"] == "answered" and logged[0]["mode"] == "hybrid_rerank"
+    assert {"total_ms", "embed_ms", "rerank_ms", "generation_ms"} <= set(logged[0])
+    assert "revenue" not in json.dumps(logged[0]).lower()
     assert client.post("/api/query", json={"question": "x", "top_k": 11}).status_code == 422
 
 
@@ -271,3 +289,18 @@ def test_benchmarks_returns_whatever_results_exist(client, tmp_path, monkeypatch
     monkeypatch.setattr(api, "_EVAL", tmp_path)
     body = client.get("/api/benchmarks").json()
     assert body == {"retrieval": {"modes": []}, "regression": None}
+
+
+def test_uploads_beyond_the_concurrent_limit_are_turned_away(client, monkeypatch):
+    """Two documents are indexed at a time; a third waits briefly, then gets a clear 503."""
+    import threading
+    from app import api
+    monkeypatch.setattr(api, "_ingest_slots", threading.BoundedSemaphore(1))
+    api._ingest_slots.acquire()                       # another visitor's upload is running
+    original = api._ingest_slots.acquire
+    monkeypatch.setattr(api._ingest_slots, "acquire", lambda timeout=None: original(timeout=0.01))
+    try:
+        response = upload(client)
+        assert response.status_code == 503 and "busy" in response.json()["detail"]
+    finally:
+        api._ingest_slots.release()

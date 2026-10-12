@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-08T18:34:15+00:00",
+ "generated_at": "2026-10-12T08:49:43+00:00",
  "with_answers": false,
  "ingestion": [
   {
@@ -72,7 +72,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 2,
-   "latency_ms": 1482,
+   "latency_ms": 382,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -85,7 +85,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 2,
-   "latency_ms": 1315,
+   "latency_ms": 326,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -98,7 +98,7 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 2,
-   "latency_ms": 2401,
+   "latency_ms": 1046,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -111,7 +111,7 @@
    "facets_covered": 0,
    "facets": 0,
    "sources_sent": 2,
-   "latency_ms": 515,
+   "latency_ms": 214,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -124,7 +124,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 1,
-   "latency_ms": 621,
+   "latency_ms": 148,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -137,7 +137,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 4,
-   "latency_ms": 1479,
+   "latency_ms": 427,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -150,7 +150,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 1,
-   "latency_ms": 966,
+   "latency_ms": 298,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -163,7 +163,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 1,
-   "latency_ms": 898,
+   "latency_ms": 248,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -176,7 +176,7 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 2,
-   "latency_ms": 2463,
+   "latency_ms": 911,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -189,7 +189,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 1,
-   "latency_ms": 1094,
+   "latency_ms": 330,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -202,7 +202,7 @@
    "facets_covered": 0,
    "facets": 0,
    "sources_sent": 6,
-   "latency_ms": 324,
+   "latency_ms": 169,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -215,7 +215,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 6,
-   "latency_ms": 353,
+   "latency_ms": 205,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -228,7 +228,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 1,
-   "latency_ms": 777,
+   "latency_ms": 207,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -241,7 +241,7 @@
    "facets_covered": 4,
    "facets": 4,
    "sources_sent": 4,
-   "latency_ms": 1916,
+   "latency_ms": 861,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -254,7 +254,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 1,
-   "latency_ms": 1084,
+   "latency_ms": 205,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -267,7 +267,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 2,
-   "latency_ms": 1347,
+   "latency_ms": 200,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -279,8 +279,8 @@
    "answerable": false,
    "facets_covered": 0,
    "facets": 0,
-   "sources_sent": 6,
-   "latency_ms": 830,
+   "sources_sent": 4,
+   "latency_ms": 218,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -293,7 +293,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 6,
-   "latency_ms": 415,
+   "latency_ms": 217,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -306,7 +306,7 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 6,
-   "latency_ms": 986,
+   "latency_ms": 444,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -319,7 +319,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 2,
-   "latency_ms": 1349,
+   "latency_ms": 282,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -332,7 +332,7 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 3,
-   "latency_ms": 1706,
+   "latency_ms": 801,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -345,7 +345,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 1,
-   "latency_ms": 1015,
+   "latency_ms": 221,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -358,7 +358,7 @@
    "facets_covered": 0,
    "facets": 0,
    "sources_sent": 0,
-   "latency_ms": 626,
+   "latency_ms": 234,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -371,7 +371,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 1,
-   "latency_ms": 1185,
+   "latency_ms": 327,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -384,7 +384,7 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 4,
-   "latency_ms": 2137,
+   "latency_ms": 809,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -397,7 +397,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 6,
-   "latency_ms": 1306,
+   "latency_ms": 565,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -410,7 +410,7 @@
    "facets_covered": 0,
    "facets": 0,
    "sources_sent": 0,
-   "latency_ms": 1534,
+   "latency_ms": 303,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -423,7 +423,7 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 3,
-   "latency_ms": 3557,
+   "latency_ms": 1189,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -436,7 +436,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 1,
-   "latency_ms": 1182,
+   "latency_ms": 323,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -449,7 +449,7 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 1,
-   "latency_ms": 5354,
+   "latency_ms": 2166,
    "uncovered": [
     "repetition interval are required"
    ],
@@ -464,7 +464,7 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 1,
-   "latency_ms": 2464,
+   "latency_ms": 1274,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -477,7 +477,7 @@
    "facets_covered": 0,
    "facets": 0,
    "sources_sent": 2,
-   "latency_ms": 3127,
+   "latency_ms": 1716,
    "uncovered": [
     "What are the annual salaries of Dr"
    ],
@@ -492,10 +492,8 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 7,
-   "latency_ms": 6948,
-   "uncovered": [
-    "issue date"
-   ],
+   "latency_ms": 2232,
+   "uncovered": [],
    "problems": null,
    "unverified": null
   },
@@ -507,10 +505,8 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 2,
-   "latency_ms": 8310,
-   "uncovered": [
-    "its travel time"
-   ],
+   "latency_ms": 2872,
+   "uncovered": [],
    "problems": null,
    "unverified": null
   },
@@ -522,7 +518,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 1,
-   "latency_ms": 2234,
+   "latency_ms": 905,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -535,7 +531,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 2,
-   "latency_ms": 2495,
+   "latency_ms": 889,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -548,7 +544,7 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 2,
-   "latency_ms": 2299,
+   "latency_ms": 765,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -561,7 +557,7 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 4,
-   "latency_ms": 2312,
+   "latency_ms": 937,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -574,7 +570,7 @@
    "facets_covered": 0,
    "facets": 0,
    "sources_sent": 0,
-   "latency_ms": 3414,
+   "latency_ms": 1208,
    "uncovered": [
     "What are the ticket prices"
    ],
@@ -589,7 +585,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 2,
-   "latency_ms": 1825,
+   "latency_ms": 763,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -602,7 +598,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 1,
-   "latency_ms": 2004,
+   "latency_ms": 988,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -615,7 +611,7 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 1,
-   "latency_ms": 2169,
+   "latency_ms": 856,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -628,7 +624,7 @@
    "facets_covered": 3,
    "facets": 3,
    "sources_sent": 4,
-   "latency_ms": 2158,
+   "latency_ms": 911,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -641,7 +637,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 2,
-   "latency_ms": 1581,
+   "latency_ms": 518,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -654,9 +650,8 @@
    "facets_covered": 0,
    "facets": 0,
    "sources_sent": 3,
-   "latency_ms": 5115,
+   "latency_ms": 1860,
    "uncovered": [
-    "What are the land purchase price",
     "employee salaries"
    ],
    "problems": null,
@@ -670,7 +665,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 5,
-   "latency_ms": 2004,
+   "latency_ms": 869,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -683,7 +678,7 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 2,
-   "latency_ms": 5104,
+   "latency_ms": 2083,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -696,7 +691,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 3,
-   "latency_ms": 1434,
+   "latency_ms": 504,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -709,7 +704,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 1,
-   "latency_ms": 1640,
+   "latency_ms": 802,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -722,7 +717,7 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 7,
-   "latency_ms": 2113,
+   "latency_ms": 969,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -735,7 +730,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 3,
-   "latency_ms": 1640,
+   "latency_ms": 723,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -748,7 +743,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 3,
-   "latency_ms": 2051,
+   "latency_ms": 1168,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -761,7 +756,7 @@
    "facets_covered": 0,
    "facets": 0,
    "sources_sent": 4,
-   "latency_ms": 1562,
+   "latency_ms": 762,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -774,7 +769,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 2,
-   "latency_ms": 1532,
+   "latency_ms": 577,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -787,7 +782,7 @@
    "facets_covered": 4,
    "facets": 4,
    "sources_sent": 6,
-   "latency_ms": 2021,
+   "latency_ms": 865,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -800,7 +795,7 @@
    "facets_covered": 2,
    "facets": 2,
    "sources_sent": 5,
-   "latency_ms": 6192,
+   "latency_ms": 2565,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -813,7 +808,7 @@
    "facets_covered": 3,
    "facets": 3,
    "sources_sent": 5,
-   "latency_ms": 4953,
+   "latency_ms": 1581,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -826,7 +821,7 @@
    "facets_covered": 0,
    "facets": 0,
    "sources_sent": 4,
-   "latency_ms": 3068,
+   "latency_ms": 1259,
    "uncovered": [
     "What are the purchase prices"
    ],
@@ -841,7 +836,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 5,
-   "latency_ms": 1030,
+   "latency_ms": 274,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -854,7 +849,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 14,
-   "latency_ms": 4113,
+   "latency_ms": 1236,
    "uncovered": [],
    "problems": null,
    "unverified": null
@@ -867,7 +862,7 @@
    "facets_covered": 1,
    "facets": 1,
    "sources_sent": 5,
-   "latency_ms": 1775,
+   "latency_ms": 757,
    "uncovered": [],
    "problems": null,
    "unverified": null

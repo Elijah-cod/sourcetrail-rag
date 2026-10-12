@@ -13,7 +13,8 @@ export type UploadItem = {
   kind: "file" | "link" | "notice";
   name: string;
   status: "processing" | "done" | "error";
-  message?: string;      // the reason, when it failed
+  message?: string;      // the reason, when it failed; or a warning about a finished one
+  detail?: string;       // what was indexed, e.g. "12 passages, 8,431 characters"
 };
 
 const errorText = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
@@ -74,7 +75,12 @@ export function useDocuments() {
       enqueue(async () => {
         try {
           const result = await send();
-          update(id, { status: "done", name: result.title });
+          update(id, {
+            status: "done",
+            name: result.title,
+            detail: `${result.chunk_count} passage${result.chunk_count === 1 ? "" : "s"}, ${result.characters.toLocaleString()} characters`,
+            message: result.warning ?? undefined,
+          });
           await refresh();                                   // show it in the list straight away
           return result;
         } catch (error) {

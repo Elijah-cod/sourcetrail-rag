@@ -117,7 +117,8 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
 // ---------- regression benchmark ----------
 
 function Regression({ results }: { results: RegressionResults | null }) {
-  const [onlyProblems, setOnlyProblems] = useState(false);
+  // null = not chosen yet: a run that needs attention opens on its problems, a clean one on everything.
+  const [onlyProblems, setOnlyProblems] = useState<boolean | null>(null);
   if (!results) {
     return (
       <Section title="Regression benchmark">
@@ -125,7 +126,13 @@ function Regression({ results }: { results: RegressionResults | null }) {
       </Section>
     );
   }
-  return <RegressionResultsView results={results} onlyProblems={onlyProblems} setOnlyProblems={setOnlyProblems} />;
+  return (
+    <RegressionResultsView
+      results={results}
+      onlyProblems={onlyProblems ?? results.questions.some(hasProblem)}
+      setOnlyProblems={setOnlyProblems}
+    />
+  );
 }
 
 function hasProblem(q: RegressionQuestion) {
@@ -203,8 +210,8 @@ function RegressionResultsView({ results, onlyProblems, setOnlyProblems }: {
       </div>
 
       <TileGroup title="Finding the evidence">
-        <Tile label="Question parts with a passage" value={`${stats.found}/${stats.facets}`} note={`${stats.complete}/${stats.answerable} questions fully covered`} good={stats.found === stats.facets} />
-        <Tile label="Questions saying a found part is missing" value={`${stats.uncovered}/${stats.answerable}`} good={stats.uncovered === 0} />
+        <Tile label="Question parts search found a passage for" value={`${stats.found}/${stats.facets}`} note={`every part found in ${stats.complete}/${stats.answerable} questions`} good={stats.found === stats.facets} />
+        <Tile label="Questions that would wrongly say a part is missing" value={`${stats.uncovered}/${stats.answerable}`} note="the passage was found, but judged too weak a match" good={stats.uncovered === 0} />
         <Tile label="Ingestion checks" value={`${stats.ingestOk}/${results.ingestion.length}`} good={stats.ingestOk === results.ingestion.length} />
         <Tile label="Median retrieval time" value={`${(stats.median / 1000).toFixed(1)} s`} />
       </TileGroup>

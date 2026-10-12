@@ -67,3 +67,29 @@ def split_facets(question: str) -> list[str]:
         if not any(content_words(part) == content_words(u) for u in unique):
             unique.append(part)
     return unique[:MAX_FACETS] if len(unique) >= 2 else []
+
+
+# Capitalised words that aren't the first word of a sentence: names ("Sable Ridge", "Vesper").
+_NAME = re.compile(r"(?<![.?!:]\s)(?<!^)\b[A-Z][\w'’-]*(?:\s+[A-Z][\w'’-]*)*")
+
+
+def names(question: str) -> list[str]:
+    """The names a question is about, in order: "...the Sable Ridge departure checklist, and state
+    when the Vesper departs" -> ["Sable Ridge", "Vesper"]."""
+    found = [re.sub(r"['’]s$", "", n) for n in _NAME.findall(question.strip())]
+    return list(dict.fromkeys(n for n in found if n.lower() not in _FILLER))
+
+
+def with_context(facet: str, question: str) -> str:
+    """A facet to search on its own, with the names it lost in the split.
+
+    "its travel time" means nothing without "the Vesper": the reranker scored the passage saying
+    the Vesper "reaches Summit Gate after 47 minutes" 0.0001 for it, so the answer was told the
+    travel time wasn't covered. "its travel time (Sable Ridge, Vesper)" scores it 0.997.
+    A facet that already names something keeps its own wording.
+    """
+    lost = names(question)
+    if not lost or any(n.lower() in facet.lower() for n in lost):
+        return facet
+    return f"{facet} ({', '.join(lost)})"
+

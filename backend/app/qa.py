@@ -18,13 +18,13 @@ import psycopg
 from app.config import get_settings
 from app.embed import Embedder
 from app import verify
-from app.facets import content_words, split_facets
+from app.facets import content_words, split_facets, with_context
 from app.generate import NOT_FOUND, Citation, generate_answer
 from app.identifiers import (MAX_FOLLOWED, boundary, exact_matches, find_identifiers, is_document_code,
                              references, wants_reference_followed)
 from app.llm import LLMClient, LLMUnavailable
 from app.query import ParsedQuery, parse_query
-from app.rerank import TOP_K, Reranker, rerank
+from app.rerank import TOP_K, Reranker, passage_text, rerank
 from app.retrieve import CANDIDATES, FUSED_LIMIT, Mode, retrieve
 from app.search import HIT_COLUMNS, SearchHit
 from app.tables import whole_table_hits, with_summaries
@@ -58,7 +58,7 @@ RELATIVE_CUTOFF = 0.2   # ...and anything under 20% of the best passage's score 
 # Compound questions (see app/facets.py): each part gets its own search, and its best passages
 # are added to the full question's. The LLM then sees at most MAX_SOURCES passages.
 FACET_CANDIDATES = 4
-FACET_POOL = 10         # fused candidates reranked per facet (the full question reranks 30)
+FACET_POOL = 10         # fused candidates reranked per facet (the full question reranks 15)
 NEAR_TIE = 2.0          # reranker logits: a runner-up this close to a facet's best passage is kept too
 MAX_SOURCES = 10
 
@@ -127,7 +127,7 @@ def gather_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reran
             progress("parts", count=len(facets))
             started = time.perf_counter()
             hits, uncovered = _add_facet_sources(conn, embedder, reranker, parsed.year, facets, hits,
-                                                 workspace_ids, threshold, idents)
+                                                 workspace_ids, threshold, idents, question)
             timings["facets_ms"] = (time.perf_counter() - started) * 1000
 
     # "Handle them as described above for caching DNS servers": the rule is in the previous chunk.
@@ -155,7 +155,7 @@ def gather_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reran
 
 def _add_facet_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker, year: int | None,
                        facets: list[str], hits: list[SearchHit], workspace_ids: list[UUID],
-                       threshold: float, idents: list[str]) -> tuple[list[SearchHit], list[str]]:
+                       threshold: float, idents: list[str], question: str = "") -> tuple[list[SearchHit], list[str]]:
     """Search each facet on its own and make sure its best passage reaches the LLM.
 
     A facet whose best passage scores under the relevance threshold gets one wider retry (three
@@ -194,6 +194,8 @@ def _add_facet_sources(conn: psycopg.Connection, embedder: Embedder, reranker: R
                 break
         if not best and already_sent:
             continue
+        if not best and _answered_by_sent(reranker, facet, question, hits, threshold):
+            continue
         if not best:
             uncovered.append(facet)
             continue
@@ -208,6 +210,23 @@ def _add_facet_sources(conn: psycopg.Connection, embedder: Embedder, reranker: R
     # The full question's own order first, then what the facets added.
     ordered = [h for h in _unique(hits + required) if (h.document_id, h.chunk_id) in kept]
     return ordered, uncovered
+
+
+def _answered_by_sent(reranker: Reranker, facet: str, question: str, hits: list[SearchHit],
+                      threshold: float) -> bool:
+    """Whether a passage already sent answers a facet that lost its subject in the split.
+
+    "its travel time" alone matches nothing: the reranker scored "the Vesper ... reaches Summit
+    Gate after 47 minutes" 0.0001 for it, so the answer was told the travel time had no passage
+    although that passage was a source. With the names put back ("its travel time (Sable Ridge,
+    Vesper)") it scores 0.997. Only the passages already sent are checked, and none is added:
+    names alone make the reranker generous ("staff salaries (Sable Ridge Observatory)" matched a
+    staffing section), so this may only stop a false "not covered", never bring in a new source.
+    """
+    query = with_context(facet, question)
+    if query == facet or not hits:
+        return False
+    return max(reranker.score(query, [passage_text(h) for h in hits])) >= _logit(threshold)
 
 
 def _shares_words(facet: str, hit: SearchHit) -> bool:

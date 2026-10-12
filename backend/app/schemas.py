@@ -46,6 +46,8 @@ class IngestResponse(Out):
     title: str
     slug: str
     chunk_count: int
+    characters: int = 0                # of text indexed, so a near-empty extraction is visible
+    warning: str | None = None         # e.g. very little text was read
 
 
 class CitationOut(Out):
@@ -77,7 +79,7 @@ class QueryResponse(Out):
     citations: list[CitationOut]
     sources: list[SourceOut]
     filters: dict[str, int] = {}     # filters read from the question, e.g. {"year": 2024}
-    timings: dict[str, float] = {}   # search_ms, rerank_ms, generation_ms
+    timings: dict[str, float] = {}   # embed_ms, search_ms, rerank_ms, facets_ms, generation_ms...
     unverified: list[str] = []       # figures or codes in the answer that no source contains
 
 
