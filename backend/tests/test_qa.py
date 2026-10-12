@@ -204,3 +204,21 @@ def test_no_write_stage_when_nothing_is_found(db, fake_embedder, fake_reranker, 
     ask(db, fake_embedder, fake_reranker, FakeLLM(), "Anything?", [workspace_id],
         progress=lambda stage, **details: stages.append(stage))
     assert stages == ["search"]
+
+
+def test_a_part_answered_by_a_sent_passage_is_not_reported_uncovered():
+    """'its travel time' scores nothing on its own; with the question's names it matches the
+    passage already sent, so the answer isn't told that part has no passage."""
+    from app.qa import _answered_by_sent
+    from app.search import SearchHit
+
+    class NameAware:
+        def score(self, question, passages):
+            return [5.0 if "Vesper" in question and "Vesper" in p else -5.0 for p in passages]
+
+    sent = [SearchHit(chunk_id="c1", document_id=None, document_title="Field Manual", source_type="docx",
+                      source_uri="m.docx", text="The tram Vesper reaches Summit Gate after 47 minutes.", page=None,
+                      section="Transit Schedule", score=0.9)]
+    question = "When does the Vesper depart, and what is its travel time?"
+    assert _answered_by_sent(NameAware(), "its travel time", question, sent, 0.3)
+    assert not _answered_by_sent(NameAware(), "its travel time", "what is its travel time?", sent, 0.3)

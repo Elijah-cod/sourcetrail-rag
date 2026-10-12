@@ -112,8 +112,10 @@ billing, an idle app scales to zero and costs nothing. It needs a billing accoun
 3. Region `us-central1` (or another Tier 1 region near your Neon database), **Allow public
    access**, billing **Request-based**, minimum instances 0, maximum instances 1.
 4. Container: port 8080, memory 1 GiB, 1 CPU, startup CPU boost on. Add the variables
-   `DATABASE_URL` (Neon), `LLM_API_KEY` (Groq), `COOKIE_SECURE=true` and
-   `TRUST_FORWARDED_FOR=true` (Google's front end appends the real client address).
+   `DATABASE_URL` (Neon's connection string, starting `postgresql://`), `LLM_API_KEY` (Groq),
+   `COOKIE_SECURE=true`, `TRUST_FORWARDED_FOR=true` (Google's front end appends the real client
+   address) and `MODEL_THREADS=1` (one thread per vCPU: with one thread per *host* CPU, ONNX
+   made reranking about five times slower).
 
 Every push to `main` is then built and deployed by Cloud Build; open the `https://…run.app`
 address Cloud Run shows. The first visit after the app has been idle waits while it starts

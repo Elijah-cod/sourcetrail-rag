@@ -4,7 +4,7 @@ Why a second pass? Vector search compares two vectors that were made *separately
 (question alone, chunk alone). A cross-encoder reads question + chunk *together*, so it
 can notice that "Revenue declined in 2024" answers "why did sales drop last year?" while
 "Revenue grew in 2023" doesn't, even though both look similar. It's slower (one model run
-per chunk), which is why we only use it on the ~30 candidates RRF already picked.
+per chunk), which is why we only use it on the 15 candidates RRF already picked.
 """
 
 import math
@@ -12,10 +12,10 @@ from dataclasses import replace
 from functools import lru_cache
 from typing import Protocol
 
-from app.config import get_settings
+from app.config import cpu_threads, get_settings
 from app.search import SearchHit
 
-TOP_K = 6   # chunks handed to the LLM (diagram: "top 30 -> top 5-8")
+TOP_K = 6   # chunks handed to the LLM
 
 
 class Reranker(Protocol):
@@ -28,7 +28,8 @@ class FastEmbedReranker:
     def __init__(self, model_name: str, cache_dir: str, batch_size: int = 4):
         from fastembed.rerank.cross_encoder import TextCrossEncoder   # imported lazily (tests use fakes)
 
-        self._model = TextCrossEncoder(model_name=model_name, cache_dir=cache_dir, enable_cpu_mem_arena=False)
+        self._model = TextCrossEncoder(model_name=model_name, cache_dir=cache_dir, threads=cpu_threads(),
+                                        enable_cpu_mem_arena=False)
         self.batch_size = batch_size
 
     def score(self, question: str, passages: list[str]) -> list[float]:

@@ -7,7 +7,7 @@ Texts with similar meaning get vectors that point in similar directions, so
 from functools import lru_cache
 from typing import Protocol
 
-from app.config import get_settings
+from app.config import cpu_threads, get_settings
 
 
 class Embedder(Protocol):
@@ -28,7 +28,8 @@ class FastEmbedEmbedder:
 
         self.dim, self.batch_size = dim, batch_size
         # No memory arena: ONNX would otherwise keep its peak allocation for good (see config).
-        self._model = TextEmbedding(model_name=model_name, cache_dir=cache_dir, enable_cpu_mem_arena=False)
+        self._model = TextEmbedding(model_name=model_name, cache_dir=cache_dir, threads=cpu_threads(),
+                                    enable_cpu_mem_arena=False)
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         # passage_embed = "these are passages to be searched"
