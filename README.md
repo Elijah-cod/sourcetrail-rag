@@ -100,16 +100,29 @@ memory and a full CPU or more for comfortable answer times; Render's free plan (
 **Database: Neon (free).** Create a project, then copy its connection string (with
 `?sslmode=require`). The migrations enable `pgvector` themselves.
 
-**App: Hugging Face Spaces (free CPU tier, 2 vCPU, 16 GB).**
+**App: Google Cloud Run (free tier).** Cloud Run's monthly free allowance (180,000
+vCPU-seconds, 360,000 GiB-seconds, 2 million requests) covers a demo: with request-based
+billing, an idle app scales to zero and costs nothing. It needs a billing account (a card).
 
-1. Create a Space with the **Docker** SDK (blank template).
-2. In the Space's settings, add the secrets `DATABASE_URL` (Neon) and `LLM_API_KEY` (Groq),
-   and the variables `COOKIE_SECURE=true` and `TRUST_FORWARDED_FOR=true`.
-3. In GitHub (Settings > Secrets and variables > Actions), add the secret `HF_TOKEN`
-   (a Hugging Face token with write access) and the variable `HF_SPACE` (`your-name/space-name`).
+1. In the Google Cloud console, create a project and link a billing account. Add a small
+   budget alert under Billing > Budgets & alerts.
+2. Cloud Run > Create service > **Continuously deploy from a repository** > Set up with Cloud
+   Build. Connect GitHub, pick this repository, branch `^main$`, build type **Dockerfile**
+   (`/Dockerfile`).
+3. Region `us-central1` (or another Tier 1 region near your Neon database), **Allow public
+   access**, billing **Request-based**, minimum instances 0, maximum instances 1.
+4. Container: port 8080, memory 1 GiB, 1 CPU, startup CPU boost on. Add the variables
+   `DATABASE_URL` (Neon), `LLM_API_KEY` (Groq), `COOKIE_SECURE=true` and
+   `TRUST_FORWARDED_FOR=true` (Google's front end appends the real client address).
 
-Every push to `main` that passes CI is then deployed by `.github/workflows/deploy.yml`
-(or run it by hand from the Actions tab). Open the app at its direct address,
-`https://your-name-space-name.hf.space`: inside the huggingface.co page it runs in a frame,
-where browsers block the workspace cookie. A free Space sleeps after 48 hours without
-visitors and wakes on the next visit.
+Every push to `main` is then built and deployed by Cloud Build; open the `https://…run.app`
+address Cloud Run shows. The first visit after the app has been idle waits while it starts
+and loads the models. Stored images past Artifact Registry's free 0.5 GB cost about $0.10
+per GB a month, so delete old ones now and then.
+
+**Alternative: Hugging Face Spaces.** Docker Spaces now need a PRO plan. With one, create a
+Docker Space, add the same four settings in its settings, then add the GitHub secret
+`HF_TOKEN` and variable `HF_SPACE`: `.github/workflows/deploy.yml` deploys every push to
+`main` that passes CI (it does nothing while `HF_SPACE` is unset). Open the app at
+`https://your-name-space-name.hf.space`, not inside the huggingface.co page, where browsers
+block the workspace cookie.
