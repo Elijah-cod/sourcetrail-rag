@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # that is dozens of threads time-sharing one CPU, and reranking 30 passages took 5 s
     # instead of under 1 s (16 threads on one core measured 16x slower than 1).
     model_threads: int = 0
+    # Load both models before taking the first request (the Docker image turns this on). A cold
+    # start then pays for them once, up front, instead of inside somebody's first question.
+    preload_models: bool = False
 
     # LLM: any OpenAI-compatible chat API. Default: Groq's free tier.
     # Local alternative (Ollama): LLM_BASE_URL=http://localhost:11434/v1  LLM_MODEL=llama3.2

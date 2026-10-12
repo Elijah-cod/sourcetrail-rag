@@ -61,7 +61,8 @@ def retrieve(conn: psycopg.Connection, embedder: Embedder, question: str, worksp
 
     `mode` lets the evaluation compare methods, matching the diagram:
     vector only -> keyword only -> hybrid -> hybrid + reranker.
-    Pass a dict as `timings` to receive how long each stage took (milliseconds).
+    Pass a dict as `timings` to receive how long each stage took (milliseconds): embed_ms
+    (turning the question into a vector), search_ms (the database searches), rerank_ms.
     """
     if mode not in MODES:
         raise ValueError(f"Unknown retrieval mode: {mode!r}")
@@ -72,8 +73,10 @@ def retrieve(conn: psycopg.Connection, embedder: Embedder, question: str, worksp
     started = time.perf_counter()
     lists: dict[str, list[SearchHit]] = {}
     if mode in ("vector", "hybrid", "hybrid_rerank"):
-        lists["vector"] = vector_search(conn, embedder.embed_query(question), workspace_ids,
-                                        limit=candidates, year=year)
+        vector = embedder.embed_query(question)
+        timings["embed_ms"] = (time.perf_counter() - started) * 1000
+        started = time.perf_counter()
+        lists["vector"] = vector_search(conn, vector, workspace_ids, limit=candidates, year=year)
     if mode in ("keyword", "hybrid", "hybrid_rerank"):
         lists["keyword"] = keyword_search(conn, question, workspace_ids, limit=candidates, year=year)
     fused = rrf_fuse(lists, limit=limit)

@@ -1,3 +1,4 @@
+import io
 import json
 
 import pytest
@@ -256,8 +257,23 @@ def test_top_k_limits_sources_in_every_mode(client):
 def test_timings_are_reported(client):
     upload(client)
     timings = client.post("/api/query", json={"question": "Why did revenue decline?"}).json()["timings"]
-    assert {"search_ms", "rerank_ms", "generation_ms"} <= set(timings)
+    assert {"embed_ms", "search_ms", "rerank_ms", "generation_ms"} <= set(timings)
     assert all(v >= 0 for v in timings.values())
+
+
+def test_each_question_is_logged_with_its_timings_but_not_its_text(client, monkeypatch):
+    from app import monitoring
+
+    printed = io.StringIO()
+    monkeypatch.setattr(monitoring._handler, "stream", printed)
+    upload(client)
+    client.post("/api/query", json={"question": "Why did revenue decline?"})
+    logged = [json.loads(line) for line in printed.getvalue().splitlines()]
+    logged = [line for line in logged if line["event"] == "query"]
+    assert len(logged) == 1
+    assert logged[0]["status"] == "answered" and logged[0]["mode"] == "hybrid_rerank"
+    assert {"total_ms", "embed_ms", "rerank_ms", "generation_ms"} <= set(logged[0])
+    assert "revenue" not in json.dumps(logged[0]).lower()
     assert client.post("/api/query", json={"question": "x", "top_k": 11}).status_code == 422
 
 

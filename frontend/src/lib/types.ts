@@ -54,7 +54,9 @@ export type QueryResult = {
   citations: Citation[];
   sources: Source[];
   filters: { year?: number };
-  timings: { search_ms?: number; rerank_ms?: number; generation_ms?: number };
+  /** Milliseconds per stage: embed_ms, search_ms, rerank_ms, facets_ms, lookup_ms, generation_ms,
+   *  gap_search_ms, gap_answer_ms, recheck_ms. Only the stages this question went through. */
+  timings: Record<string, number>;
   /** Figures or codes in the answer that no source contains (worth checking). */
   unverified?: string[];
 };

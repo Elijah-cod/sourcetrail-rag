@@ -4,6 +4,7 @@ import json
 import logging
 import queue
 import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -22,7 +23,8 @@ from app.indexing import TooManyChunks, index_document
 from app.ingest import ExtractedDocument, ExtractionError, extract_file, extract_url
 from app.limits import CapacityExceeded, QuotaLLM, check_can_add_document
 from app.llm import LLMClient, get_llm
-from app.qa import ask
+from app.monitoring import log_query
+from app.qa import Answer, ask
 from app.rerank import Reranker, get_reranker
 from app.schemas import (ChunkOut, DocumentOut, IngestResponse, QueryRequest, QueryResponse,
                          UrlRequest)
@@ -132,9 +134,16 @@ def query(body: QueryRequest,
           llm: LLMClient = Depends(get_llm),
           usage: psycopg.Connection = Depends(get_usage_conn)):
     metered_llm = QuotaLLM(llm, usage, get_settings().llm_calls_per_day)   # counts toward the daily cap
+    started = time.perf_counter()
     result = ask(conn, embedder, reranker, metered_llm, body.question,
                  searchable_workspaces(workspace_id), mode=body.mode, top_k=body.top_k)
+    _log_answer(body.mode, started, result)
     return QueryResponse.model_validate(result)
+
+
+def _log_answer(mode: str, started: float, result: Answer) -> None:
+    log_query(mode, result.status, (time.perf_counter() - started) * 1000, result.timings,
+              sources=len(result.sources), citations=len(result.citations))
 
 
 @router.post("/query/stream", summary="Ask a question; get progress lines, then the cited answer",
@@ -156,9 +165,11 @@ def query_stream(body: QueryRequest,
 
     def run() -> None:
         try:
+            started = time.perf_counter()
             result = ask(conn, embedder, reranker, metered_llm, body.question, searchable_workspaces(workspace_id),
                          mode=body.mode, top_k=body.top_k,
                          progress=lambda stage, **details: lines.put({"stage": stage, **details}))
+            _log_answer(body.mode, started, result)
             lines.put({"result": QueryResponse.model_validate(result).model_dump(mode="json")})
         except Exception:
             logging.exception("query stream failed")

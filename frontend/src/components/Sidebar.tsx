@@ -2,9 +2,17 @@
 
 import { BarChart3, FileText, MessageSquare, Plus, X } from "lucide-react";
 import type { ReactNode } from "react";
+import type { Health } from "@/hooks/useHealth";
 import { useModalDrawer } from "@/hooks/useModalDrawer";
 
 export type View = "chat" | "documents" | "benchmarks";
+
+const HEALTH: Record<Health, { label: string; dot: string }> = {
+  connecting: { label: "Connecting…", dot: "bg-ink-300" },
+  starting: { label: "Starting up…", dot: "animate-pulse bg-warning-500" },
+  online: { label: "Engine Online", dot: "bg-success-500" },
+  offline: { label: "Engine Offline", dot: "bg-danger-500" },
+};
 
 type Props = {
   view: View;
@@ -15,7 +23,7 @@ type Props = {
   documentCount: number | null;
   recentQuestions: string[];
   onPickRecent: (question: string) => void;
-  online: boolean | null;     // null = still checking
+  health: Health;
 };
 
 export function Sidebar(props: Props) {
@@ -107,14 +115,8 @@ export function Sidebar(props: Props) {
 
         <div className="flex items-center justify-between border-t border-ink-200 px-1 pt-3 text-xs text-ink-500">
           <span className="flex items-center gap-1.5">
-            <span
-              className={`h-2 w-2 rounded-full ${
-                props.online === null ? "bg-ink-300" : props.online ? "bg-success-500" : "bg-danger-500"
-              }`}
-            />
-            <span className="font-medium text-ink-600">
-              {props.online === null ? "Connecting…" : props.online ? "Engine Online" : "Engine Offline"}
-            </span>
+            <span className={`h-2 w-2 rounded-full ${HEALTH[props.health].dot}`} />
+            <span className="font-medium text-ink-600">{HEALTH[props.health].label}</span>
           </span>
           <span className="rounded bg-ink-100 px-1 font-mono text-[12px] text-ink-600">v0.1</span>
         </div>

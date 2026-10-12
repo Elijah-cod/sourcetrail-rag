@@ -26,7 +26,7 @@ COPY --from=frontend /app/frontend/out /app/frontend/out
 # models at runtime: they are already in .cache/models.
 RUN useradd --create-home --uid 1000 app && chown -R app /app
 USER app
-ENV HF_HUB_OFFLINE=1
+ENV HF_HUB_OFFLINE=1 PRELOAD_MODELS=true
 
 # At start: apply new migrations, index the demo collection if its files changed, serve.
 EXPOSE 8000
