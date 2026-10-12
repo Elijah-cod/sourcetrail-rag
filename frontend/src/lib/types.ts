@@ -19,6 +19,8 @@ export type IngestResult = {
   title: string;
   slug: string;
   chunk_count: number;
+  characters: number;
+  warning: string | null;
 };
 
 export type Mode = "vector" | "keyword" | "hybrid" | "hybrid_rerank";

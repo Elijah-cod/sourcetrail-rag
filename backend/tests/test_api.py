@@ -131,6 +131,8 @@ def test_add_url(client, monkeypatch):
     monkeypatch.setattr("app.api.extract_url", lambda url: doc)
     response = client.post("/api/sources/url", json={"url": "https://example.com/docs"})
     assert response.status_code == 201 and response.json()["title"] == "FastAPI Docs"
+    # 27 characters: the visitor is told so, instead of finding out from empty answers later.
+    assert response.json()["characters"] == 27 and "Only 27 characters" in response.json()["warning"]
     listed = [d for d in client.get("/api/documents").json() if not d["is_demo"]]
     assert listed[0]["source_uri"] == "https://example.com/docs"
 
@@ -271,3 +273,18 @@ def test_benchmarks_returns_whatever_results_exist(client, tmp_path, monkeypatch
     monkeypatch.setattr(api, "_EVAL", tmp_path)
     body = client.get("/api/benchmarks").json()
     assert body == {"retrieval": {"modes": []}, "regression": None}
+
+
+def test_uploads_beyond_the_concurrent_limit_are_turned_away(client, monkeypatch):
+    """Two documents are indexed at a time; a third waits briefly, then gets a clear 503."""
+    import threading
+    from app import api
+    monkeypatch.setattr(api, "_ingest_slots", threading.BoundedSemaphore(1))
+    api._ingest_slots.acquire()                       # another visitor's upload is running
+    original = api._ingest_slots.acquire
+    monkeypatch.setattr(api._ingest_slots, "acquire", lambda timeout=None: original(timeout=0.01))
+    try:
+        response = upload(client)
+        assert response.status_code == 503 and "busy" in response.json()["detail"]
+    finally:
+        api._ingest_slots.release()

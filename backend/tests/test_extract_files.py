@@ -1,4 +1,5 @@
 import io
+import zipfile
 from pathlib import Path
 
 import docx
@@ -67,8 +68,32 @@ def test_empty_file_is_rejected():
 
 
 def test_corrupt_pdf_is_rejected():
-    with pytest.raises(ExtractionError, match="Could not read PDF"):
+    with pytest.raises(ExtractionError, match="isn't a PDF"):
         extract_file("broken.pdf", b"this is not a pdf")
+    with pytest.raises(ExtractionError, match="Could not read PDF"):
+        extract_file("broken.pdf", b"%PDF-1.7 but nothing else")
+
+
+def test_file_contents_must_match_the_extension():
+    """Checked by the bytes, not the name: a renamed program or archive is refused up front."""
+    with pytest.raises(ExtractionError, match="isn't a DOCX"):
+        extract_file("report.docx", b"%PDF-1.7 ...")
+    with pytest.raises(ExtractionError, match="binary file"):
+        extract_file("notes.txt", b"MZ\x90\x00\x03\x00\x00\x00 a Windows program")
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("readme.txt", "not word")
+    with pytest.raises(ExtractionError, match="not a Word document"):
+        extract_file("report.docx", buffer.getvalue())
+
+
+def test_zip_bomb_docx_is_refused():
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("word/document.xml", "<w:document/>")
+        archive.writestr("word/media/padding.bin", b"\x00" * (60 * 1024 * 1024))   # compresses to ~60 KB
+    with pytest.raises(ExtractionError, match="too much data"):
+        extract_file("bomb.docx", buffer.getvalue())
 
 
 def test_helpers():

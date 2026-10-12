@@ -46,6 +46,8 @@ class IngestResponse(Out):
     title: str
     slug: str
     chunk_count: int
+    characters: int = 0                # of text indexed, so a near-empty extraction is visible
+    warning: str | None = None         # e.g. very little text was read
 
 
 class CitationOut(Out):

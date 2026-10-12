@@ -5,6 +5,7 @@ import logging
 import queue
 import threading
 from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import UUID
 
@@ -28,6 +29,25 @@ from app.schemas import (ChunkOut, DocumentOut, IngestResponse, QueryRequest, Qu
 
 router = APIRouter()
 
+# Less text than this (about a paragraph or two) usually means extraction missed the content.
+LITTLE_TEXT = 600
+
+# Reading and embedding a document takes a CPU for seconds; with every visitor uploading at once
+# answers would stall for everyone. Beyond this many at a time, uploads are turned away politely.
+INGEST_SLOTS = 2
+_ingest_slots = threading.BoundedSemaphore(INGEST_SLOTS)
+
+
+@contextmanager
+def ingest_slot():
+    if not _ingest_slots.acquire(timeout=5):
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
+                            "The server is busy adding other documents. Please try again in a minute.")
+    try:
+        yield
+    finally:
+        _ingest_slots.release()
+
 
 def _store(conn: psycopg.Connection, embedder: Embedder, workspace_id: UUID,
            doc: ExtractedDocument, source_uri: str) -> IngestResponse:
@@ -38,8 +58,14 @@ def _store(conn: psycopg.Connection, embedder: Embedder, workspace_id: UUID,
                                 chunk_budget=room)
     except (CapacityExceeded, TooManyChunks) as exc:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, str(exc)) from exc
+    characters = sum(len(section.text) for section in doc.sections)
+    warning = None
+    if characters < LITTLE_TEXT:
+        where = "this page" if doc.source_type == "url" else "this file"
+        warning = (f"Only {characters} characters of text were read from {where}. If you expected more, its text "
+                   "may be in images or loaded by JavaScript; questions about the rest won't find anything.")
     return IngestResponse(document_id=result.document_id, title=doc.title, slug=result.slug,
-                          chunk_count=result.chunk_count)
+                          chunk_count=result.chunk_count, characters=characters, warning=warning)
 
 
 @router.post("/documents", response_model=IngestResponse, status_code=status.HTTP_201_CREATED,
@@ -55,11 +81,12 @@ def upload_document(file: UploadFile,
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE,
                             f"File is larger than {get_settings().max_upload_mb} MB.")
     filename = file.filename or "upload"
-    try:
-        doc = extract_file(filename, data)
-    except ExtractionError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    return _store(conn, embedder, workspace_id, doc, source_uri=filename)
+    with ingest_slot():
+        try:
+            doc = extract_file(filename, data)
+        except ExtractionError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+        return _store(conn, embedder, workspace_id, doc, source_uri=filename)
 
 
 @router.post("/sources/url", response_model=IngestResponse, status_code=status.HTTP_201_CREATED,
@@ -69,11 +96,12 @@ def add_url(body: UrlRequest,
             conn: psycopg.Connection = Depends(get_conn),
             embedder: Embedder = Depends(get_embedder)):
     url = str(body.url)
-    try:
-        doc = extract_url(url)
-    except ExtractionError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    return _store(conn, embedder, workspace_id, doc, source_uri=url)
+    with ingest_slot():
+        try:
+            doc = extract_url(url)
+        except ExtractionError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+        return _store(conn, embedder, workspace_id, doc, source_uri=url)
 
 
 @router.get("/documents", response_model=list[DocumentOut],

@@ -154,3 +154,52 @@ def test_title_falls_back_to_html_title_not_hostname(monkeypatch):
     monkeypatch.setattr(web.trafilatura, "extract_metadata", lambda *a, **k: None)
     doc = web.extract_html("https://www.example.org/rfc/rfc0000.html", html)
     assert doc.title == "Special-Use Names"
+
+
+@pytest.mark.parametrize("url, expected", [
+    ("https://github.com/Elijah-cod/sourcetrail-rag", ("https://api.github.com/repos/Elijah-cod/sourcetrail-rag/readme", "README.md")),
+    ("https://github.com/Elijah-cod/sourcetrail-rag/", ("https://api.github.com/repos/Elijah-cod/sourcetrail-rag/readme", "README.md")),
+    ("https://github.com/o/r/tree/main/docs", ("https://api.github.com/repos/o/r/readme/docs?ref=main", "README.md")),
+    ("https://github.com/o/r/blob/v2/docs/guide.md", ("https://raw.githubusercontent.com/o/r/v2/docs/guide.md", "guide.md")),
+    ("https://github.com/o/r/blob/main/app.py", None),          # code files: read as a page
+    ("https://github.com/o/r/issues/12", None),
+    ("https://gist.github.com/o/abc", None),
+    ("https://example.com/o/r", None),
+])
+def test_github_links_are_read_as_markdown(url, expected):
+    assert web.github_source(url) == expected
+
+
+def test_github_readme_keeps_code_blocks(monkeypatch):
+    """The repository page lost the README's commands; read as Markdown they are searchable."""
+    readme = (Path(__file__).resolve().parents[2] / "README.md").read_text()
+    calls = []
+    monkeypatch.setattr(web, "_fetch", lambda url, **kw: calls.append(url) or (url, readme))
+    doc = web.extract_url("https://github.com/Elijah-cod/sourcetrail-rag")
+    assert calls == ["https://api.github.com/repos/Elijah-cod/sourcetrail-rag/readme"]
+    assert doc.source_type == "url" and doc.diagnostics["extractor"] == "github"
+    assert doc.title == "sourcetrail-rag"
+    assert any("uv run python -m app.migrate" in s.text for s in doc.sections)
+
+
+def test_github_repository_without_a_readme(monkeypatch):
+    def missing(url, **kw):
+        raise ExtractionError("That page wasn't found (HTTP 404).")
+    monkeypatch.setattr(web, "_fetch", missing)
+    with pytest.raises(ExtractionError, match="no README"):
+        web.extract_url("https://github.com/o/private-repo")
+
+
+def test_connection_to_a_private_address_is_refused_even_after_dns_checks_pass():
+    """DNS rebinding: the name resolved to a public address when checked, then to 127.0.0.1."""
+    class Stream:
+        def get_extra_info(self, key):
+            return ("127.0.0.1", 80) if key == "server_addr" else None
+
+    class Response:
+        extensions = {"network_stream": Stream()}
+
+    with pytest.raises(ExtractionError, match="private or local"):
+        web._check_peer(Response())
+    Response.extensions = {"network_stream": type("S", (), {"get_extra_info": lambda self, k: ("93.184.216.34", 443)})()}
+    web._check_peer(Response())                       # a public address is fine
