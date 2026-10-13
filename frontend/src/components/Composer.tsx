@@ -90,7 +90,7 @@ export function Composer(props: Props) {
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
-              className="flex h-10 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900"
+              className="flex h-11 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900"
               title="Add a PDF, DOCX, Markdown, TXT or CSV file (or paste a link in the box)"
             >
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Paperclip className="h-4 w-4" aria-hidden />}

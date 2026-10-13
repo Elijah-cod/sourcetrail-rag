@@ -16,7 +16,7 @@ export function Header({ onOpenNav, onToggleSources, sourcesOpen, sourcesCount }
         <button
           type="button"
           onClick={onOpenNav}
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-600 hover:bg-ink-100 lg:hidden"
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-600 hover:bg-ink-100 lg:hidden"
           aria-label="Open navigation"
         >
           <Menu className="h-5 w-5" />
@@ -42,7 +42,7 @@ export function Header({ onOpenNav, onToggleSources, sourcesOpen, sourcesCount }
           aria-label={`Sources, ${sourcesCount} citation${sourcesCount === 1 ? "" : "s"}`}
           aria-expanded={sourcesOpen}
           aria-controls="sources-panel"
-          className="flex h-10 items-center gap-1.5 rounded-lg px-3 text-[12.5px] font-medium text-ink-700 transition-colors hover:bg-brand-50/70 hover:text-brand-600"
+          className="flex h-11 items-center gap-1.5 rounded-lg px-3 text-[12.5px] font-medium text-ink-700 transition-colors hover:bg-brand-50/70 hover:text-brand-600"
           title="Toggle sources panel"
         >
           <BookOpen className="h-4 w-4 text-brand-600" aria-hidden />

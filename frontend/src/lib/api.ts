@@ -26,7 +26,8 @@ async function send(path: string, init?: RequestInit): Promise<Response> {
   try {
     // Same origin: the browser sends the workspace cookie automatically.
     return await fetch(`/api${path}`, { credentials: "same-origin", ...init });
-  } catch {
+  } catch (error) {
+    if (init?.signal?.aborted) throw error;     // stopped on purpose, not a network problem
     throw new ApiError("Can't reach the server. Is the backend running?", 0);
   }
 }
@@ -71,15 +72,22 @@ export const deleteDocument = (id: string) =>
   request<void>(`/documents/${encodeURIComponent(id)}`, { method: "DELETE" });
 
 /** What the server is doing while it prepares an answer (see POST /query/stream). */
-export type Stage = { stage: "search" | "parts" | "write" | "check"; count?: number; sources?: number };
+export type Stage = { stage: "search" | "parts" | "write" | "check"; count?: number; done?: number; sources?: number };
 
 /** Ask a question. `onStage` is called as each stage starts, so a slow answer shows progress.
  *  The server sends one JSON object per line: stages, then {"result"} or {"error"}. */
-export async function askQuestionStream(question: string, mode: Mode, topK: number, onStage: (stage: Stage) => void) {
+export async function askQuestionStream(
+  question: string,
+  mode: Mode,
+  topK: number,
+  onStage: (stage: Stage) => void,
+  signal?: AbortSignal,
+) {
   const response = await send("/query/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question, mode, top_k: topK }),
+    signal,
   });
   if (!response.ok || !response.body) {
     const body = await response.json().catch(() => null);

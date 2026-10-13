@@ -43,6 +43,8 @@ from app.store import DEMO_WORKSPACE_ID
 
 HERE = Path(__file__).parent
 FIXTURES = HERE / "fixtures"
+# A case whose fixture is "*" asks across documents: its parts may be found in any of them.
+ANY = "*"
 
 
 @dataclass
@@ -161,14 +163,14 @@ def run(with_answers: bool = False) -> str:
         workspace = conn.execute("INSERT INTO workspaces DEFAULT VALUES RETURNING id").fetchone()[0]
         searched = [workspace, DEMO_WORKSPACE_ID]
         try:
-            for fixture in dict.fromkeys(c.fixture for c in cases if c.kind == "question"):
+            for fixture in dict.fromkeys(c.fixture for c in cases if c.kind == "question" and c.fixture != ANY):
                 index_document(conn, embedder, workspace, extract(fixture), source_uri=fixture)
             for case in (c for c in cases if c.kind == "question"):
                 started = time.perf_counter()
                 found = gather_sources(conn, embedder, reranker, case.question, searched)
                 ms = (time.perf_counter() - started) * 1000
                 sent = [] if found.final is not None else found.hits
-                texts = [norm(f"{h.section or ''}\n{h.text}") for h in sent if h.source_uri == case.fixture]
+                texts = [norm(f"{h.section or ''}\n{h.text}") for h in sent if case.fixture in (ANY, h.source_uri)]
                 got = sum(covered(f, texts) for f in case.facets)
                 answer_problems, unverified = None, None
                 if llm is not None:

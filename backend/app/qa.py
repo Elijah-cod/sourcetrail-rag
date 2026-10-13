@@ -124,10 +124,9 @@ def gather_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reran
         # Solace is in Lock Four" needs the Copper-alert section, which doesn't mention KITE-11.
         facets = split_facets(question)
         if facets:
-            progress("parts", count=len(facets))
             started = time.perf_counter()
             hits, uncovered = _add_facet_sources(conn, embedder, reranker, parsed.year, facets, hits,
-                                                 workspace_ids, threshold, idents, question)
+                                                 workspace_ids, threshold, idents, question, progress)
             timings["facets_ms"] = (time.perf_counter() - started) * 1000
 
     # "Handle them as described above for caching DNS servers": the rule is in the previous chunk.
@@ -155,7 +154,8 @@ def gather_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reran
 
 def _add_facet_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker, year: int | None,
                        facets: list[str], hits: list[SearchHit], workspace_ids: list[UUID],
-                       threshold: float, idents: list[str], question: str = "") -> tuple[list[SearchHit], list[str]]:
+                       threshold: float, idents: list[str], question: str = "",
+                       progress: Progress = _no_progress) -> tuple[list[SearchHit], list[str]]:
     """Search each facet on its own and make sure its best passage reaches the LLM.
 
     A facet whose best passage scores under the relevance threshold gets one wider retry (three
@@ -171,15 +171,21 @@ def _add_facet_sources(conn: psycopg.Connection, embedder: Embedder, reranker: R
     sent = {(h.document_id, h.chunk_id) for h in hits}
     asked_docs = {h.document_id for h in hits}
     for number, facet in enumerate(facets, start=1):
+        progress("parts", count=len(facets), done=number)    # "Searching part 3 of 6"
         named = [i for i in idents if boundary(i).search(facet)]
         if named and any(_mentions(h, i) for h in hits for i in named):
             continue                     # "For asset TG-210": its exact match is already a source
         best: list[SearchHit] = []
-        # A small pool first (reranking is the slow part); the wide one only if that finds nothing.
+        scored: list[SearchHit] = []         # every candidate reranked so far, best first
+        # A small pool first (reranking is the slow part); the wide one only if that finds nothing,
+        # and then only its candidates the first pass didn't already score (20 more, not 30).
         for pool in (FACET_POOL, FUSED_LIMIT * 2):
-            found = retrieve(conn, embedder, facet, workspace_ids, reranker=reranker, year=year,
-                             top_k=FACET_CANDIDATES, candidates=max(CANDIDATES, pool), limit=pool)
-            found = [h for h in found if not _lookalike(h, idents)]
+            pooled = retrieve(conn, embedder, facet, workspace_ids, mode="hybrid", year=year,
+                              candidates=max(CANDIDATES, pool), limit=pool)
+            done = {(h.document_id, h.chunk_id) for h in scored}
+            new = [h for h in pooled if (h.document_id, h.chunk_id) not in done]
+            scored = sorted(scored + rerank(reranker, facet, new, top_k=len(new)), key=lambda h: -h.score)
+            found = [h for h in scored[:FACET_CANDIDATES] if not _lookalike(h, idents)]
             good = [h for h in found if h.score >= threshold]
             # A runner-up the reranker rates about as highly is kept too: "Solace is in Lock Four"
             # matches both the lock schedule and the Copper-alert rule for Solace (0.999 / 0.997).
@@ -310,6 +316,15 @@ def _lookalike(hit: SearchHit, idents: list[str]) -> bool:
 def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None, llm: LLMClient,
         question: str, workspace_ids: list[UUID], mode: Mode = "hybrid_rerank",
         min_relevance: float | None = None, top_k: int = TOP_K, progress: Progress = _no_progress) -> Answer:
+    started = time.perf_counter()
+    answer = _ask(conn, embedder, reranker, llm, question, workspace_ids, mode, min_relevance, top_k, progress)
+    answer.timings["total_ms"] = (time.perf_counter() - started) * 1000
+    return answer
+
+
+def _ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None, llm: LLMClient,
+         question: str, workspace_ids: list[UUID], mode: Mode, min_relevance: float | None, top_k: int,
+         progress: Progress) -> Answer:
     found = gather_sources(conn, embedder, reranker, question, workspace_ids, mode, min_relevance, top_k, progress)
     if found.final is not None:
         return found.final
@@ -333,6 +348,7 @@ def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None,
         more = _search_for_gaps(conn, embedder, reranker, text, hits, workspace_ids, parsed.year,
                                 get_settings().min_relevance if min_relevance is None else min_relevance)
         timings["gap_search_ms"] = (time.perf_counter() - started) * 1000
+        started = time.perf_counter()      # each stage below is timed on its own
         if more:
             try:
                 text, citations = generate_answer(llm, question, _unique(hits + more), found.uncovered)

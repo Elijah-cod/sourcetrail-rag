@@ -116,7 +116,7 @@ export default function Home() {
           }}
           open={navOpen}
           onClose={() => setNavOpen(false)}
-          documentCount={docs.documents?.length ?? null}
+          documentCount={docs.documents ? docs.documents.filter((d) => !d.is_demo).length : null}
           recentQuestions={recent.questions}
           onPickRecent={(q) => void ask(q)}
           health={health}
@@ -135,6 +135,7 @@ export default function Home() {
                       onCite={inspect}
                       active={sourcesOpen ? inspected : null}
                       onRegenerate={(id) => void chat.regenerate(id)}
+                      onStop={chat.stop}
                       busy={chat.loading}
                     />
                   </>
@@ -188,7 +189,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={exportCitations}
-                  className="-my-1.5 flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-brand-600 transition-colors hover:bg-brand-50 hover:text-brand-700"
+                  className="-my-1.5 flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-brand-600 transition-colors hover:bg-brand-50 hover:text-brand-700"
                 >
                   <Download className="h-3.5 w-3.5" aria-hidden />
                   Export citations

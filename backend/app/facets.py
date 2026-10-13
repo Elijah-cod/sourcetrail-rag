@@ -15,7 +15,7 @@ for them, and searching them only made the answer report them as "not covered".
 
 import re
 
-MAX_FACETS = 4
+MAX_FACETS = 8   # a part beyond this is still in the full-question search, but gets no search of its own
 MIN_CONTENT_WORDS = 2
 
 # Words that carry no topic of their own: question words, auxiliaries, articles, pronouns...
@@ -45,7 +45,7 @@ _SPLIT = re.compile(
 
 # A part that tells the model how to answer rather than asking about the documents.
 _INSTRUCTION = re.compile(
-    r"^(?:please\s+)?(?:preserve|keep|format|respond|reply|cite|quote|write|be|answer (?:in|with|briefly)|"
+    r"^(?:please\s+)?(?:preserve|keep|format|respond|reply|cite|quote|write|be|combine|answer (?:in|with|briefly)|"
     r"show (?:the |your |all )?(?:work|working|arithmetic|calculations?|steps|sums|totals))\b", re.IGNORECASE)
 
 

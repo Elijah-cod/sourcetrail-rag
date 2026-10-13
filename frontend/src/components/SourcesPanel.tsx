@@ -14,7 +14,7 @@ type Props = {
 /**
  * Right-hand "Referenced Sources" panel.
  * - lg and up: a column next to the chat (hidden when closed).
- * - below lg: slides in over the chat as a modal dialog; full width on phones.
+ * - below lg: slides in over the chat as a modal dialog; on phones a sheet over the lower 70%.
  */
 export function SourcesPanel({ open, onClose, children, footer }: Props) {
   const { panel, modal } = useModalDrawer<HTMLDivElement>(open, onClose);
@@ -29,8 +29,9 @@ export function SourcesPanel({ open, onClose, children, footer }: Props) {
       />
       <div
         ref={panel}
-        className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col justify-between overflow-hidden border-l border-ink-200 bg-raised shadow-xs transition-transform duration-200 sm:w-96 lg:static lg:z-auto lg:shrink-0 lg:translate-x-0 ${
-          open ? "translate-x-0" : "translate-x-full lg:hidden"
+        // Phones: a sheet over the lower part of the screen, so the answer stays in view above it.
+        className={`fixed inset-x-0 bottom-0 z-50 flex h-[70dvh] flex-col justify-between overflow-hidden rounded-t-2xl border-t border-ink-200 bg-raised shadow-xs transition-[transform,visibility] duration-200 sm:inset-x-auto sm:inset-y-0 sm:right-0 sm:h-auto sm:w-96 sm:rounded-none sm:border-t-0 sm:border-l lg:static lg:z-auto lg:shrink-0 lg:translate-x-0 lg:translate-y-0 ${
+          open ? "translate-y-0 sm:translate-x-0" : "invisible translate-y-full sm:translate-x-full sm:translate-y-0 lg:hidden"
         }`}
         id="sources-panel"
         {...(modal ? { role: "dialog", "aria-modal": true, "aria-labelledby": "sources-panel-title" } : { role: "complementary", "aria-label": "Referenced sources" })}
@@ -41,7 +42,7 @@ export function SourcesPanel({ open, onClose, children, footer }: Props) {
             <BookOpen className="h-[18px] w-[18px] text-brand-600" aria-hidden />
             <h2 id="sources-panel-title" className="font-heading text-[13.5px] font-bold text-ink-900">Referenced Sources</h2>
           </div>
-          <button type="button" onClick={onClose} data-autofocus className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-700" aria-label="Close sources panel">
+          <button type="button" onClick={onClose} data-autofocus className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-700" aria-label="Close sources panel">
             <X className="h-[18px] w-[18px]" />
           </button>
         </div>

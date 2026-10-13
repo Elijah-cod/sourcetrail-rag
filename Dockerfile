@@ -26,7 +26,9 @@ COPY --from=frontend /app/frontend/out /app/frontend/out
 # models at runtime: they are already in .cache/models.
 RUN useradd --create-home --uid 1000 app && chown -R app /app
 USER app
-ENV HF_HUB_OFFLINE=1 PRELOAD_MODELS=true
+# One model thread: the deployment has 1 vCPU, and more threads than CPUs made reranking several
+# times slower (see MODEL_THREADS in app/config.py). Raise it with the CPU count.
+ENV HF_HUB_OFFLINE=1 PRELOAD_MODELS=true MODEL_THREADS=1
 
 # At start: apply new migrations, index the demo collection if its files changed, serve.
 EXPOSE 8000
