@@ -62,6 +62,7 @@ class Case:
     title: str | None = None
     contains: list[str] = field(default_factory=list)
     reject: str | None = None
+    cited: list[str] = field(default_factory=list)      # fixtures the answer must cite (with --answers)
 
 
 def load_cases(path: Path = HERE / "cases.jsonl") -> list[Case]:
@@ -113,6 +114,7 @@ def grade_answer(case: Case, answer) -> list[str]:
         return [] if answer.status == "not_found" else [f"answered an unanswerable question: {text[:80]!r}"]
     problems = [f"missing fact {f!r}" for f in case.facts if norm(f) not in norm(text)]
     problems += [f"forbidden claim {f!r}" for f in case.forbidden if norm(f) in norm(text)]
+    problems += [f"didn't cite {c}" for c in case.cited if c not in {cit.source_uri for cit in answer.citations}]
     problems += [f"didn't quote {w!r}" for w in case.exact_words if w not in modal_words(text)]
     lines = [line for line in text.splitlines() if re.match(r"\s*([-*•]|\d+[.)])\s", line)]
     for key in case.no_duplicates:
@@ -163,7 +165,8 @@ def run(with_answers: bool = False) -> str:
         workspace = conn.execute("INSERT INTO workspaces DEFAULT VALUES RETURNING id").fetchone()[0]
         searched = [workspace, DEMO_WORKSPACE_ID]
         try:
-            for fixture in dict.fromkeys(c.fixture for c in cases if c.kind == "question" and c.fixture != ANY):
+            named = [f for c in cases if c.kind == "question" for f in (c.fixture, *c.cited) if f != ANY]
+            for fixture in dict.fromkeys(named):
                 index_document(conn, embedder, workspace, extract(fixture), source_uri=fixture)
             for case in (c for c in cases if c.kind == "question"):
                 started = time.perf_counter()

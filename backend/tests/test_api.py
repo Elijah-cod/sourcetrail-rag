@@ -265,11 +265,24 @@ def test_top_k_limits_sources_in_every_mode(client):
         assert len(body["sources"]) <= 2, mode
 
 
-def test_timings_are_reported(client):
+def test_visitors_get_a_timestamp_but_no_timings(client, db):
+    from datetime import datetime, timezone
     upload(client)
-    timings = client.post("/api/query", json={"question": "Why did revenue decline?"}).json()["timings"]
-    assert {"embed_ms", "search_ms", "rerank_ms", "generation_ms", "total_ms"} <= set(timings)
-    assert all(v >= 0 for v in timings.values())
+    body = client.post("/api/query", json={"question": "Why did revenue decline?"}).json()
+    assert "timings" not in body
+    created = datetime.fromisoformat(body["created_at"])
+    assert created.tzinfo is not None and abs((datetime.now(timezone.utc) - created).total_seconds()) < 60
+    # The timings are kept for the admin area instead, without the question.
+    status_, timings = db.execute("SELECT status, timings FROM query_events ORDER BY created_at DESC LIMIT 1").fetchone()
+    assert status_ == "answered" and {"embed_ms", "search_ms", "rerank_ms", "generation_ms"} <= set(timings)
+    assert "revenue" not in json.dumps(timings).lower()
+
+
+def test_uploads_are_recorded_for_the_admin_area(client, db):
+    upload(client)
+    client.post("/api/documents", files={"file": ("bad.pdf", b"not a pdf", "application/pdf")})
+    rows = db.execute("SELECT source_type, ok, chunks, error FROM ingest_events ORDER BY created_at").fetchall()
+    assert rows[-2][:3] == ("md", True, 1) and rows[-1][:2] == ("pdf", False) and "422" in rows[-1][3]
 
 
 def test_each_question_is_logged_with_its_timings_but_not_its_text(client, monkeypatch):
@@ -293,18 +306,10 @@ def test_health_on_both_paths(client):
     assert client.get("/api/health").status_code == 200
 
 
-def test_benchmarks_returns_whatever_results_exist(client, tmp_path, monkeypatch):
-    from app import api
-    (tmp_path / "regression").mkdir()
-    (tmp_path / "results.json").write_text('{"modes": []}')
-    monkeypatch.setattr(api, "_EVAL", tmp_path)
-    body = client.get("/api/benchmarks").json()
-    assert body == {"retrieval": {"modes": []}, "regression": None}
-
-
 def test_uploads_beyond_the_concurrent_limit_are_turned_away(client, monkeypatch):
     """Two documents are indexed at a time; a third waits briefly, then gets a clear 503."""
     import threading
+
     from app import api
     monkeypatch.setattr(api, "_ingest_slots", threading.BoundedSemaphore(1))
     api._ingest_slots.acquire()                       # another visitor's upload is running

@@ -2,7 +2,6 @@
 
 import { CheckCircle2, Download } from "lucide-react";
 import { useState } from "react";
-import { BenchmarksView } from "@/components/BenchmarksView";
 import { ChatMessages } from "@/components/ChatMessages";
 import { Composer } from "@/components/Composer";
 import { DocumentsView } from "@/components/DocumentsView";
@@ -166,11 +165,6 @@ export default function Home() {
                 uploads={docs.uploads}
                 onDismissUpload={docs.dismissUpload}
               />
-            </div>
-          )}
-          {view === "benchmarks" && (
-            <div className="flex-1 overflow-y-auto">
-              <BenchmarksView />
             </div>
           )}
         </main>

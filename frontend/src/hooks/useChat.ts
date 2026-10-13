@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { ApiError, askQuestionStream, type Stage } from "@/lib/api";
 import type { Mode, QueryResult } from "@/lib/types";
 
-export type UserMessage = { id: number; role: "user"; text: string };
+export type UserMessage = { id: number; role: "user"; text: string; sentAt: number };
 export type AssistantMessage = {
   id: number;
   role: "assistant";
@@ -56,7 +56,7 @@ export function useChat() {
       // Show the question and a "thinking…" placeholder immediately, before the server answers.
       setMessages((list) => [
         ...list,
-        { id: answerId - 1, role: "user", text: question },
+        { id: answerId - 1, role: "user", text: question, sentAt: Date.now() },
         { id: answerId, role: "assistant", question, query, status: "loading", startedAt: Date.now() },
       ]);
 

@@ -71,6 +71,20 @@ class Settings(BaseSettings):
     # header when a proxy you control adds it; otherwise anyone can fake it.
     trust_forwarded_for: bool = False
 
+    # ---- Admin area (/admin) ----
+    # One password, no username. ADMIN_PASSWORD_HASH comes from `python -m app.admin hash-password`;
+    # ADMIN_SESSION_SECRET is any long random string (`python -m app.admin new-secret`). Changing the
+    # secret signs everyone out. Without both, the admin area stays closed. ADMIN_PASSWORD (plain
+    # text, hashed at start) is accepted as a stopgap, but a hash is preferred: see README.
+    admin_password_hash: str = ""
+    admin_password: str = ""
+    admin_session_secret: str = ""
+    admin_session_hours: int = 12
+    admin_login_attempts: int = 5            # failed sign-ins per client per 15 minutes
+    # How long operational records are kept (they hold no question, answer or document text).
+    telemetry_retention_days: int = 7
+    admin_event_retention_days: int = 30
+
     # The Next.js static export (frontend/out). Served at "/" when the folder exists.
     frontend_dir: str = "../frontend/out"
 

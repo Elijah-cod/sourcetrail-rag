@@ -79,7 +79,9 @@ class QueryResponse(Out):
     citations: list[CitationOut]
     sources: list[SourceOut]
     filters: dict[str, int] = {}     # filters read from the question, e.g. {"year": 2024}
-    timings: dict[str, float] = {}   # embed_ms, search_ms, rerank_ms, facets_ms, generation_ms...
+    # When the answer was ready, in UTC; the page shows it in the visitor's own time zone. Stage
+    # timings are deliberately absent: they are operational data, for the admin area only.
+    created_at: datetime | None = None
     unverified: list[str] = []       # figures or codes in the answer that no source contains
 
 

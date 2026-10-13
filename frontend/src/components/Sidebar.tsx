@@ -1,17 +1,24 @@
 "use client";
 
-import { BarChart3, FileText, MessageSquare, Plus, RotateCcw, X } from "lucide-react";
+import { FileText, MessageSquare, Plus, RotateCcw, X } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Health } from "@/hooks/useHealth";
 import { useModalDrawer } from "@/hooks/useModalDrawer";
 
-export type View = "chat" | "documents" | "benchmarks";
+export type View = "chat" | "documents";
 
-const HEALTH: Record<Health, { label: string; dot: string }> = {
-  connecting: { label: "Connecting…", dot: "bg-ink-300" },
-  starting: { label: "Starting up…", dot: "animate-pulse bg-warning-500" },
-  online: { label: "Engine Online", dot: "bg-success-500" },
-  offline: { label: "Engine Offline", dot: "bg-danger-500" },
+/** What visitors see about availability: plain words, quiet when all is well, clearer when not. */
+const HEALTH: Record<Health, { label: string; spoken: string; dot: string; text: string }> = {
+  connecting: { label: "Connecting…", spoken: "Connecting to SourceTrail", dot: "animate-pulse bg-ink-300", text: "text-ink-500" },
+  ready: { label: "Ready", spoken: "SourceTrail is ready to answer questions", dot: "bg-success-500", text: "text-ink-500" },
+  busy: { label: "Busy, you can still ask", spoken: "SourceTrail is busy, but you can still ask a question", dot: "bg-warning-500", text: "text-warning-800" },
+  reconnecting: { label: "Reconnecting", spoken: "Reconnecting to SourceTrail", dot: "animate-pulse bg-ink-400", text: "text-ink-600" },
+  unavailable: {
+    label: "Temporarily unavailable",
+    spoken: "SourceTrail is temporarily unavailable. Try again shortly.",
+    dot: "bg-danger-500",
+    text: "font-semibold text-danger-700",
+  },
 };
 
 type Props = {
@@ -87,9 +94,6 @@ export function Sidebar(props: Props) {
             >
               Documents
             </NavItem>
-            <NavItem active={view === "benchmarks"} onClick={() => go("benchmarks")} icon={<BarChart3 className="h-[18px] w-[18px]" />}>
-              Benchmarks
-            </NavItem>
           </nav>
 
           {props.recentQuestions.length > 0 && (
@@ -116,12 +120,14 @@ export function Sidebar(props: Props) {
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t border-ink-200 px-1 pt-3 text-xs text-ink-500">
-          <span className="flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded-full ${HEALTH[props.health].dot}`} />
-            <span className="font-medium text-ink-600">{HEALTH[props.health].label}</span>
+        <div className="flex items-center border-t border-ink-200 px-1 pt-3 text-xs">
+          {/* A live region: a change (e.g. to "Temporarily unavailable") is announced once. */}
+          <span role="status" aria-label={HEALTH[props.health].spoken} className="flex items-center gap-1.5">
+            <span className={`h-2 w-2 rounded-full ${HEALTH[props.health].dot}`} aria-hidden />
+            <span className={HEALTH[props.health].text} aria-hidden>
+              {HEALTH[props.health].label}
+            </span>
           </span>
-          <span className="rounded bg-ink-100 px-1 font-mono text-[12px] text-ink-600">v0.1</span>
         </div>
       </div>
     </>

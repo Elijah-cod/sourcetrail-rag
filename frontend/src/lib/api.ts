@@ -1,5 +1,5 @@
 // Every call to the backend goes through this file.
-import type { Benchmarks, Chunk, DocumentInfo, IngestResult, Mode, QueryResult } from "./types";
+import type { AdminOverview, Benchmarks, Chunk, DocumentInfo, IngestEvent, IngestResult, Mode, QueryEvent, QueryResult } from "./types";
 
 /** An error from the API, carrying the human-readable message the backend sent. */
 export class ApiError extends Error {
@@ -22,13 +22,19 @@ function messageFrom(body: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Plain words for an error the server didn't explain (never a status code or server detail). */
+function fallbackMessage(status: number): string {
+  if (status >= 500) return "SourceTrail is temporarily unavailable. Try again shortly.";
+  return "That didn't work. Try again.";
+}
+
 async function send(path: string, init?: RequestInit): Promise<Response> {
   try {
     // Same origin: the browser sends the workspace cookie automatically.
     return await fetch(`/api${path}`, { credentials: "same-origin", ...init });
   } catch (error) {
     if (init?.signal?.aborted) throw error;     // stopped on purpose, not a network problem
-    throw new ApiError("Can't reach the server. Is the backend running?", 0);
+    throw new ApiError("SourceTrail is temporarily unavailable. Try again shortly.", 0);
   }
 }
 
@@ -39,17 +45,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const retry = Number(response.headers.get("Retry-After")) || undefined;
-    throw new ApiError(messageFrom(body, `Request failed (${response.status})`), response.status, retry);
+    throw new ApiError(messageFrom(body, fallbackMessage(response.status)), response.status, retry);
   }
   return body as T;
 }
 
-export async function checkHealth(): Promise<boolean> {
+/** "ready" | "busy" from the server, "unavailable" when it says so (503), "unreachable" when it can't be reached. */
+export async function checkHealth(): Promise<"ready" | "busy" | "unavailable" | "unreachable"> {
   try {
-    const health = await request<{ status: string; database: string }>("/health");
-    return health.database === "ok";
+    const response = await fetch("/api/health", { cache: "no-store" });
+    if (response.status === 503) return "unavailable";
+    const body = (await response.json()) as { status?: string };
+    return body.status === "busy" ? "busy" : body.status === "ready" ? "ready" : "unavailable";
   } catch {
-    return false;
+    return "unreachable";
   }
 }
 
@@ -92,7 +101,7 @@ export async function askQuestionStream(
   if (!response.ok || !response.body) {
     const body = await response.json().catch(() => null);
     const retry = Number(response.headers.get("Retry-After")) || undefined;
-    throw new ApiError(messageFrom(body, `Request failed (${response.status})`), response.status, retry);
+    throw new ApiError(messageFrom(body, fallbackMessage(response.status)), response.status, retry);
   }
 
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -116,4 +125,15 @@ export async function askQuestionStream(
 export const getChunk = (documentId: string, chunkId: string) =>
   request<Chunk>(`/documents/${encodeURIComponent(documentId)}/chunks/${encodeURIComponent(chunkId)}`);
 
-export const getBenchmarks = () => request<Benchmarks>("/benchmarks");
+// ---------- admin (every call needs the admin session cookie; 401 otherwise) ----------
+
+export const adminLogin = (password: string) =>
+  request<void>("/admin/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
+export const adminLogout = () => request<void>("/admin/logout", { method: "POST" });
+export const adminSession = () => request<{ expires_at: string }>("/admin/session");
+export const getAdminOverview = (days: number) => request<AdminOverview>(`/admin/overview?days=${days}`);
+export const getBenchmarks = () => request<Benchmarks>("/admin/benchmarks");
+export const getQueryEvents = (days: number) => request<QueryEvent[]>(`/admin/queries?days=${days}`);
+export const getIngestEvents = (days: number) => request<IngestEvent[]>(`/admin/ingestion?days=${days}`);
+export const adminExportUrl = (table: "queries" | "ingestion" | "benchmarks", days: number) =>
+  `/api/admin/export/${table}.csv?days=${days}`;

@@ -38,3 +38,16 @@ def test_cleanup_removes_old_usage_events(db):
     _, events = cleanup(db, ttl_hours=24)
     assert events >= 1
     assert db.execute("SELECT count(*) FROM usage_events WHERE subject = 'x'").fetchone()[0] == 1
+
+
+def test_operational_records_are_deleted_after_their_retention(db):
+    from app.maintenance import cleanup
+    db.execute("INSERT INTO query_events (mode, status, created_at) VALUES ('hybrid', 'answered', now() - interval '8 days')")
+    db.execute("INSERT INTO query_events (mode, status) VALUES ('hybrid', 'answered')")
+    db.execute("INSERT INTO ingest_events (source_type, ok, created_at) VALUES ('pdf', true, now() - interval '8 days')")
+    db.execute("INSERT INTO admin_events (kind, created_at) VALUES ('login', now() - interval '31 days')")
+    db.execute("INSERT INTO admin_events (kind, created_at) VALUES ('login', now() - interval '20 days')")
+    cleanup(db, ttl_hours=24)
+    assert db.execute("SELECT count(*) FROM query_events").fetchone()[0] == 1
+    assert db.execute("SELECT count(*) FROM ingest_events").fetchone()[0] == 0
+    assert db.execute("SELECT count(*) FROM admin_events").fetchone()[0] == 1

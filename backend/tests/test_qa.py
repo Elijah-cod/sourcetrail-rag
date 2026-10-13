@@ -223,3 +223,28 @@ def test_a_part_answered_by_a_sent_passage_is_not_reported_uncovered():
     question = "When does the Vesper depart, and what is its travel time?"
     assert _answered_by_sent(NameAware(), "its travel time", question, sent, 0.3)
     assert not _answered_by_sent(NameAware(), "its travel time", "what is its travel time?", sent, 0.3)
+
+
+def test_every_part_keeps_its_source_when_a_table_is_added(db, fake_embedder, fake_reranker, workspace_id):
+    """The live six-document question: its CSV part brought in the whole table, and trimming
+    back to six sources dropped the other parts' passages, so the answer said they weren't covered."""
+    from app.ingest import extract_file
+
+    facts = {"Cedar Lantern": "The Cedar Lantern project keeps field samples for 17 days.",
+             "Quartz Harbor": "Quartz Harbor locks an account after 7 failed login attempts.",
+             "Silver Meridian": "The Silver Meridian relay window opens at 06:40 UTC.",
+             "Moss Echo": "The Moss Echo beacon transmits on 144.725 MHz.",
+             "Example Domains": "Example domains are maintained for documentation purposes."}
+    for title, text in facts.items():
+        index_document(db, fake_embedder, workspace_id,
+                       ExtractedDocument(title=title, source_type="txt", sections=[Section(text=text)]))
+    index_document(db, fake_embedder, workspace_id,
+                   extract_file("source test.csv", b"call_sign,team,count\nBlue Heron,Team Juniper,42\nAmber Kite,Team Saffron,19\n"))
+    llm = FakeLLM("Answer [1].")
+    result = ask(db, fake_embedder, fake_reranker, llm,
+                 "Using all six sources, answer: How long does the Cedar Lantern project keep field samples? "
+                 "After how many failed login "
+                 "attempts does Quartz Harbor lock an account? Which team and count belong to Blue Heron? When "
+                 "does the Silver Meridian relay window open? What frequency does the Moss Echo beacon use? "
+                 "Why are example domains maintained?", [workspace_id])
+    assert {*facts, "source test"} <= {h.document_title for h in result.sources}
