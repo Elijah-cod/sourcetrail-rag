@@ -11,7 +11,8 @@ def test_compound_question_is_split_into_its_parts():
     question = ("During a water conservation order, the Heron back-pump fails and an amber alert is raised "
                 "while a barge is inside the lock chamber. What should the lock keeper do?")
     assert split_facets(question) == ["During a water conservation order", "the Heron back-pump fails",
-                                      "an amber alert is raised", "a barge is inside the lock chamber"]
+                                      "an amber alert is raised", "a barge is inside the lock chamber",
+                                      "What should the lock keeper do"]
 
 
 def test_two_requests_in_one_question():
@@ -118,3 +119,15 @@ def test_names_are_put_back_into_a_part_that_lost_them():
     assert with_context("state when the Vesper departs", question) == "state when the Vesper departs"
     assert names("What is SEC-014? And who owns it?") == ["SEC-014"]
     assert with_context("issue date", "what is the issue date?") == "issue date"
+
+
+def test_six_part_question_keeps_every_part():
+    question = ("How many berth-hours do ferries get at Aurora Quay? What is the Sable Ridge carbon monoxide "
+                "limit? What is the length of Heron Lock? Who is the station chief at Mont Rivière? How long "
+                "may gateways cache .quayside answers? What is the note for asset TG-210?")
+    assert len(split_facets(question)) == 6
+
+
+def test_an_instruction_to_combine_the_parts_is_not_a_part():
+    question = "Pump KITE-11 fails during a Copper alert. Combine all required allocation and pump actions."
+    assert split_facets(question) == []

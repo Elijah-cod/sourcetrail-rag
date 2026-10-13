@@ -91,3 +91,11 @@ def test_real_reranker_prefers_the_answer(real_reranker):
     distractor = "Revenue grew 12 percent in 2023."
     hits = rerank(real_reranker, question, [hit(distractor), hit(answer)])
     assert hits[0].text == answer
+
+
+def test_real_reranker_scores_stay_with_their_passages_whatever_their_length(real_reranker):
+    question = "Why did revenue fall in 2024?"
+    passages = ["Revenue declined in 2024 because of lower demand. " * 8, "The office moved.",
+                "Revenue grew 12 percent in 2023. " * 3]
+    one_by_one = [real_reranker.score(question, [p])[0] for p in passages]
+    assert real_reranker.score(question, passages) == pytest.approx(one_by_one, abs=1e-3)

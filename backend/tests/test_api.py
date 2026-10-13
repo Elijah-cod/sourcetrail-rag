@@ -138,6 +138,17 @@ def test_add_url(client, monkeypatch):
     assert listed[0]["source_uri"] == "https://example.com/docs"
 
 
+def test_short_files_read_in_full_get_no_warning(client):
+    body = upload(client).json()
+    assert body["characters"] < 600 and body["warning"] is None
+
+
+def test_a_second_document_with_the_same_title_says_its_type(client):
+    assert upload(client, name="source test.md", data=b"Some notes.").json()["title"] == "source test"
+    second = client.post("/api/documents", files={"file": ("source test.txt", b"Other notes.", "text/plain")})
+    assert second.json()["title"] == "source test (text)"
+
+
 def test_add_url_rejects_bad_input(client, monkeypatch):
     assert client.post("/api/sources/url", json={"url": "not a url"}).status_code == 422
 
@@ -257,7 +268,7 @@ def test_top_k_limits_sources_in_every_mode(client):
 def test_timings_are_reported(client):
     upload(client)
     timings = client.post("/api/query", json={"question": "Why did revenue decline?"}).json()["timings"]
-    assert {"embed_ms", "search_ms", "rerank_ms", "generation_ms"} <= set(timings)
+    assert {"embed_ms", "search_ms", "rerank_ms", "generation_ms", "total_ms"} <= set(timings)
     assert all(v >= 0 for v in timings.values())
 
 

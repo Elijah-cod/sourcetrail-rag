@@ -54,7 +54,7 @@ export function BenchmarksView() {
           type="button"
           onClick={load}
           disabled={loading}
-          className="flex h-10 items-center gap-1.5 rounded-lg border border-ink-200 bg-raised px-3 text-[12.5px] font-semibold text-ink-700 shadow-2xs transition-colors hover:bg-ink-50 disabled:opacity-60"
+          className="flex h-11 items-center gap-1.5 rounded-lg border border-ink-200 bg-raised px-3 text-[12.5px] font-semibold text-ink-700 shadow-2xs transition-colors hover:bg-ink-50 disabled:opacity-60"
         >
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden />}
           Reload
@@ -85,8 +85,9 @@ function when(iso: string) {
 function NotRun({ command }: { command: string }) {
   return (
     <p className="rounded-xl border border-dashed border-ink-300 bg-raised px-4 py-5 text-[13px] text-ink-600">
-      Not run yet. From <code className="font-mono text-[12px]">backend/</code>, run{" "}
-      <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[12px] text-ink-800">{command}</code>
+      No results on this server yet. To produce them, the maintainer runs{" "}
+      <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[12px] text-ink-800">{command}</code> in{" "}
+      <code className="font-mono text-[12px]">backend/</code>.
     </p>
   );
 }
@@ -203,7 +204,8 @@ function RegressionResultsView({ results, onlyProblems, setOnlyProblems }: {
           )}
           {!results.with_answers && (
             <p className="mt-1 text-ink-600">
-              This run checked retrieval only; answers weren&apos;t generated or graded.
+              This run only checked that the right passages are found. The answers written from them
+              weren&apos;t generated or graded, so it says nothing yet about answer quality.
             </p>
           )}
         </div>
@@ -223,11 +225,11 @@ function RegressionResultsView({ results, onlyProblems, setOnlyProblems }: {
             <Tile label="Answers with an unsourced figure" value={`${stats.unverified}`} note="found in no source" good={stats.unverified === 0} />
           </>
         ) : (
-          <Tile label="Answers" value="Not graded" note="run with --answers to grade them" />
+          <Tile label="Answers" value="Not graded" note="this run checked the passages found, not the answers" />
         )}
       </TileGroup>
 
-      <label className="flex min-h-10 cursor-pointer items-center gap-2 self-start text-[13px] text-ink-600">
+      <label className="flex min-h-11 cursor-pointer items-center gap-2 self-start text-[13px] text-ink-600">
         <input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} className="h-4 w-4 accent-brand-600" />
         Only questions with a problem
       </label>

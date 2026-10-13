@@ -195,8 +195,9 @@ def test_progress_reports_each_stage_as_it_starts(db, fake_embedder, fake_rerank
     stages = []
     ask(db, fake_embedder, fake_reranker, FakeLLM(), "Why did revenue decline and where is the new office?",
         [workspace_id], progress=lambda stage, **details: stages.append((stage, details)))
-    assert [s for s, _ in stages] == ["search", "parts", "write", "check"]
-    assert stages[1][1] == {"count": 2} and stages[2][1]["sources"] >= 1
+    assert [s for s, _ in stages] == ["search", "parts", "parts", "write", "check"]
+    assert [d for s, d in stages if s == "parts"] == [{"count": 2, "done": 1}, {"count": 2, "done": 2}]
+    assert stages[3][1]["sources"] >= 1
 
 
 def test_no_write_stage_when_nothing_is_found(db, fake_embedder, fake_reranker, workspace_id):

@@ -36,7 +36,7 @@ export function UploadRows({ uploads, onDismiss }: Props) {
               </p>
               <p className="text-[12px] text-warning-800">{u.message}</p>
             </div>
-            <button type="button" onClick={() => onDismiss(u.id)} className="-my-2 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-warning-600 hover:bg-warning-100 hover:text-warning-800" aria-label={`Dismiss ${u.name}`}>
+            <button type="button" onClick={() => onDismiss(u.id)} className="-my-2 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-warning-600 hover:bg-warning-100 hover:text-warning-800" aria-label={`Dismiss ${u.name}`}>
               <X className="h-4 w-4" />
             </button>
           </li>
@@ -47,7 +47,7 @@ export function UploadRows({ uploads, onDismiss }: Props) {
               <p className="truncate text-[13px] font-semibold text-ink-900">{u.name}</p>
               <p className="text-[12px] text-danger-700">{u.message}</p>
             </div>
-            <button type="button" onClick={() => onDismiss(u.id)} className="-my-2 -mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-danger-500 hover:bg-danger-100 hover:text-danger-700" aria-label={`Dismiss ${u.name}`}>
+            <button type="button" onClick={() => onDismiss(u.id)} className="-my-2 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-danger-500 hover:bg-danger-100 hover:text-danger-700" aria-label={`Dismiss ${u.name}`}>
               <X className="h-4 w-4" />
             </button>
           </li>

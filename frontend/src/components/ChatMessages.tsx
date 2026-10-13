@@ -1,11 +1,11 @@
 "use client";
 
-import { AlertTriangle, CalendarRange, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertTriangle, CalendarRange, RefreshCw, ShieldCheck, Square, ChevronRight } from "lucide-react";
 import type { Stage } from "@/lib/api";
 import { answerWithSources } from "@/lib/clipboard";
 import { CopyButton } from "./CopyButton";
 import { LogoMark } from "./Logo";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AssistantMessage, Message } from "@/hooks/useChat";
 import { citationColor } from "@/lib/citations";
 import { scrollBehavior } from "@/lib/motion";
@@ -17,10 +17,11 @@ type Props = {
   onCite: (answerId: number, n: number, claim?: string) => void;
   active: { answerId: number; n: number; claim?: string } | null;   // the citation open in the sources panel
   onRegenerate: (answerId: number) => void;
+  onStop: (answerId: number) => void;
   busy: boolean;
 };
 
-export function ChatMessages({ messages, onCite, active, onRegenerate, busy }: Props) {
+export function ChatMessages({ messages, onCite, active, onRegenerate, onStop, busy }: Props) {
   const end = useRef<HTMLDivElement>(null);
 
   // Keep the newest message in view whenever the conversation changes.
@@ -48,6 +49,7 @@ export function ChatMessages({ messages, onCite, active, onRegenerate, busy }: P
             activeN={active?.answerId === m.id ? active.n : null}
             activeClaim={active?.answerId === m.id ? active.claim : undefined}
             onRegenerate={() => onRegenerate(m.id)}
+            onStop={() => onStop(m.id)}
             busy={busy}
           />
         ),
@@ -63,10 +65,11 @@ type BubbleProps = {
   activeN: number | null;
   activeClaim?: string;
   onRegenerate: () => void;
+  onStop: () => void;
   busy: boolean;
 };
 
-function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, busy }: BubbleProps) {
+function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, onStop, busy }: BubbleProps) {
   return (
     <div className="flex w-full items-start gap-3 self-start sm:gap-3.5">
       <LogoMark className="hidden h-8 w-8 sm:block" />
@@ -88,7 +91,7 @@ function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, 
                 <CopyButton
                   label="Copy answer with sources"
                   text={() => answerWithSources(message.result!)}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-700"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-700"
                 />
               )}
               <IconButton label="Ask again with the current settings" onClick={onRegenerate} disabled={busy}>
@@ -99,7 +102,7 @@ function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, 
         </div>
 
         <div className="rounded-2xl border border-ink-200/90 bg-raised p-4 text-[14.5px] leading-relaxed text-ink-800 shadow-sm sm:p-5 md:p-6">
-          {message.status === "loading" && <Thinking stage={message.stage} />}
+          {message.status === "loading" && <Thinking stage={message.stage} startedAt={message.startedAt} onStop={onStop} />}
           {message.status === "error" && (
             <p className="flex items-start gap-2 text-danger-700">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
@@ -138,25 +141,44 @@ function Unverified({ values }: { values?: string[] }) {
 function stageText(stage?: Stage) {
   switch (stage?.stage) {
     case "parts":
-      return `Searching each of the ${stage.count} parts of your question…`;
+      return stage.done
+        ? `Searching part ${stage.done} of ${stage.count} of your question…`
+        : `Searching each of the ${stage.count} parts of your question…`;
     case "write":
       return `Writing an answer from ${stage.sources} passage${stage.sources === 1 ? "" : "s"}…`;
     case "check":
-      return "Checking the answer against the sources…";
+      return "Checking the answer covers every part…";
     default:
       return "Searching your documents…";
   }
 }
 
-function Thinking({ stage }: { stage?: Stage }) {
+/** The stage in words, how long it has taken so far, and a way to stop waiting. */
+function Thinking({ stage, startedAt, onStop }: { stage?: Stage; startedAt?: number; onStop: () => void }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const seconds = startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0;
   return (
-    <div className="flex items-center gap-3 text-[13px] text-ink-500" role="status">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-ink-500">
       <span className="flex gap-1" aria-hidden>
         {[0, 150, 300].map((delay) => (
           <span key={delay} className="h-2 w-2 animate-bounce rounded-full motion-reduce:animate-none bg-brand-400" style={{ animationDelay: `${delay}ms` }} />
         ))}
       </span>
-      {stageText(stage)}
+      <span role="status">{stageText(stage)}</span>
+      {/* Not announced every second: only the stage text is a live region. */}
+      {seconds >= 2 && <span className="font-mono tabular-nums text-ink-400">{seconds} s</span>}
+      <button
+        type="button"
+        onClick={onStop}
+        className="ml-auto flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900"
+      >
+        <Square className="h-3 w-3 fill-current" aria-hidden />
+        Stop
+      </button>
     </div>
   );
 }
@@ -191,39 +213,39 @@ function StatusPill({ result, onCite }: { result: QueryResult; onCite: (n: numbe
 }
 
 /** Stages in the order they run. Several can be absent: each question only goes through some. */
-const STAGES: { label: string; keys: string[]; note: string }[] = [
-  { label: "Embed", keys: ["embed_ms"], note: "turning the question into a vector" },
-  { label: "Search", keys: ["search_ms"], note: "vector + keyword search in the database" },
-  { label: "Rerank", keys: ["rerank_ms"], note: "cross-encoder reranking of the top results" },
-  { label: "Codes", keys: ["lookup_ms"], note: "exact lookup of codes such as SEC-014" },
-  { label: "Parts", keys: ["facets_ms"], note: "a separate search for each part of a multi-part question" },
-  { label: "Answer", keys: ["generation_ms"], note: "the LLM writing the answer" },
-  { label: "Follow-up", keys: ["gap_search_ms", "gap_answer_ms"], note: "searching again for a part the first answer missed" },
-  { label: "Recheck", keys: ["recheck_ms"], note: "checking a 'not covered' claim against the sources" },
+const STAGES: { label: string; key: string; note: string }[] = [
+  { label: "Embed", key: "embed_ms", note: "turning the question into a vector" },
+  { label: "Search", key: "search_ms", note: "vector + keyword search in the database" },
+  { label: "Rerank", key: "rerank_ms", note: "cross-encoder reranking of the top results" },
+  { label: "Codes", key: "lookup_ms", note: "exact lookup of codes such as SEC-014" },
+  { label: "Parts", key: "facets_ms", note: "a separate search for each part of a multi-part question" },
+  { label: "Answer", key: "generation_ms", note: "the LLM writing the answer" },
+  { label: "Follow-up search", key: "gap_search_ms", note: "searching again for a part the first answer said was missing" },
+  { label: "Second answer", key: "gap_answer_ms", note: "the LLM answering again with what the follow-up search found" },
+  { label: "Recheck", key: "recheck_ms", note: "asking the LLM to re-read the sources for a part it called missing" },
 ];
 
-/** Real per-stage timings from the backend, and their total. */
+/** The total time, with the per-stage figures one click away (they're for debugging). */
 function Timings({ result }: { result: QueryResult }) {
-  const stages = STAGES.map((stage) => {
-    const values = stage.keys.map((key) => result.timings[key]).filter((v) => v !== undefined);
-    return { ...stage, value: values.length ? values.reduce((a, b) => a + b, 0) : undefined };
-  }).filter((s): s is typeof s & { value: number } => s.value !== undefined);
+  const stages = STAGES.filter((s) => result.timings[s.key] !== undefined);
+  const total = result.timings.total_ms ?? stages.reduce((sum, s) => sum + result.timings[s.key], 0);
   if (stages.length === 0) return null;
-  const total = stages.reduce((sum, s) => sum + s.value, 0);
-  // One quiet line of figures: useful for debugging, not the point of the answer.
   return (
-    <dl className="flex flex-wrap gap-x-5 gap-y-1 border-t border-ink-100 pt-3 text-[13px]">
-      {stages.map((s) => (
-        <div key={s.label} className="flex items-baseline gap-1.5" title={s.note}>
-          <dt className="text-ink-500">{s.label}</dt>
-          <dd className="font-mono font-semibold tabular-nums text-ink-800">{formatMs(s.value)}</dd>
-        </div>
-      ))}
-      <div className="flex items-baseline gap-1.5" title="all stages above">
-        <dt className="text-ink-500">Total</dt>
-        <dd className="font-mono font-semibold tabular-nums text-ink-800">{formatMs(total)}</dd>
-      </div>
-    </dl>
+    <details className="group border-t border-ink-100 pt-2 text-[13px]">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-ink-500 hover:text-ink-700 [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden />
+        Answered in <span className="font-mono font-semibold tabular-nums text-ink-700">{formatMs(total)}</span>
+        <span className="sr-only">: show the time of each step</span>
+      </summary>
+      <dl className="flex flex-wrap gap-x-5 gap-y-1 pb-1 pl-5">
+        {stages.map((s) => (
+          <div key={s.key} className="flex items-baseline gap-1.5" title={s.note}>
+            <dt className="text-ink-500">{s.label}</dt>
+            <dd className="font-mono font-semibold tabular-nums text-ink-800">{formatMs(result.timings[s.key])}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
   );
 }
 
@@ -260,7 +282,7 @@ function IconButton({ label, onClick, disabled, children }: { label: string; onC
       disabled={disabled}
       title={label}
       aria-label={label}
-      className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-700 disabled:opacity-40"
+      className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-700 disabled:opacity-40"
     >
       {children}
     </button>

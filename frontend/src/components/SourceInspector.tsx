@@ -142,7 +142,7 @@ function Passage({ citation: c, result, active, flash, claim, onSelect, register
             <CopyButton
               label="Copy passage"
               text={() => c.snippet}
-              className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2.5 text-[13px] font-semibold text-brand-600 hover:bg-brand-50"
+              className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2.5 text-[13px] font-semibold text-brand-600 hover:bg-brand-50"
             >
               Copy passage
             </CopyButton>

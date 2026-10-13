@@ -7,6 +7,7 @@ import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from pathlib import Path
 from uuid import UUID
 
@@ -31,8 +32,15 @@ from app.schemas import (ChunkOut, DocumentOut, IngestResponse, QueryRequest, Qu
 
 router = APIRouter()
 
-# Less text than this (about a paragraph or two) usually means extraction missed the content.
+# Less text than this (about a paragraph or two) from a PDF or a web page usually means the text
+# is in images or loaded by JavaScript. Text, Markdown, CSV and Word files are read in full, so a
+# short one is simply short: warning about every small file made successful uploads look broken.
 LITTLE_TEXT = 600
+MAY_BE_INCOMPLETE = ("pdf", "url")
+
+# Added to a title another document of the workspace already has: two uploads both called
+# "source test" (a .txt and a .csv) couldn't be told apart in the sources.
+TYPE_NAMES = {"pdf": "PDF", "docx": "Word", "md": "Markdown", "txt": "text", "csv": "CSV", "url": "web page"}
 
 # Reading and embedding a document takes a CPU for seconds; with every visitor uploading at once
 # answers would stall for everyone. Beyond this many at a time, uploads are turned away politely.
@@ -54,6 +62,9 @@ def ingest_slot():
 def _store(conn: psycopg.Connection, embedder: Embedder, workspace_id: UUID,
            doc: ExtractedDocument, source_uri: str) -> IngestResponse:
     """Shared by both ingest routes: enforce the workspace's caps, then index."""
+    if conn.execute("SELECT 1 FROM documents WHERE workspace_id = %s AND title = %s",
+                    (workspace_id, doc.title)).fetchone():
+        doc = replace(doc, title=f"{doc.title} ({TYPE_NAMES.get(doc.source_type, doc.source_type)})")
     try:
         room = check_can_add_document(conn, workspace_id)
         result = index_document(conn, embedder, workspace_id, doc, source_uri=source_uri,
@@ -62,7 +73,7 @@ def _store(conn: psycopg.Connection, embedder: Embedder, workspace_id: UUID,
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, str(exc)) from exc
     characters = sum(len(section.text) for section in doc.sections)
     warning = None
-    if characters < LITTLE_TEXT:
+    if characters < LITTLE_TEXT and doc.source_type in MAY_BE_INCOMPLETE:
         where = "this page" if doc.source_type == "url" else "this file"
         warning = (f"Only {characters} characters of text were read from {where}. If you expected more, its text "
                    "may be in images or loaded by JavaScript; questions about the rest won't find anything.")

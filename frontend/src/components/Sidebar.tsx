@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, FileText, MessageSquare, Plus, X } from "lucide-react";
+import { BarChart3, FileText, MessageSquare, Plus, RotateCcw, X } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Health } from "@/hooks/useHealth";
 import { useModalDrawer } from "@/hooks/useModalDrawer";
@@ -20,7 +20,7 @@ type Props = {
   onNewQuery: () => void;
   open: boolean;              // drawer state on small screens (always visible on lg+)
   onClose: () => void;
-  documentCount: number | null;
+  documentCount: number | null;   // the visitor's own documents (the demo collection isn't counted)
   recentQuestions: string[];
   onPickRecent: (question: string) => void;
   health: Health;
@@ -47,8 +47,8 @@ export function Sidebar(props: Props) {
       />
       <div
         ref={panel}
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 select-none flex-col justify-between border-r border-ink-200 bg-raised p-3 transition-transform duration-200 lg:static lg:z-auto lg:w-56 lg:translate-x-0 ${
-          open ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 select-none flex-col justify-between border-r border-ink-200 bg-raised p-3 transition-[transform,visibility] duration-200 lg:static lg:z-auto lg:w-56 lg:translate-x-0 ${
+          open ? "translate-x-0" : "invisible -translate-x-full lg:visible"
         }`}
         aria-label="Main navigation"
         // A drawer over the page on small screens; an ordinary side column on lg and up.
@@ -57,7 +57,7 @@ export function Sidebar(props: Props) {
       >
         <div className="flex flex-col gap-5">
           <div className="flex items-center justify-end lg:hidden">
-            <button type="button" onClick={onClose} data-autofocus className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-500 hover:bg-ink-100" aria-label="Close navigation">
+            <button type="button" onClick={onClose} data-autofocus className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-500 hover:bg-ink-100" aria-label="Close navigation">
               <X className="h-5 w-5" />
             </button>
           </div>
@@ -94,7 +94,8 @@ export function Sidebar(props: Props) {
 
           {props.recentQuestions.length > 0 && (
             <div className="mt-2 flex flex-col gap-1">
-              <SectionLabel>Recent Topics</SectionLabel>
+              {/* Not saved conversations: picking one asks it again, so the label says so. */}
+              <SectionLabel>Ask again</SectionLabel>
               {props.recentQuestions.map((question) => (
                 <button
                   key={question}
@@ -103,10 +104,12 @@ export function Sidebar(props: Props) {
                     props.onPickRecent(question);
                     go("chat");
                   }}
-                  className="min-h-10 truncate rounded-md px-2.5 py-2 text-left text-[12px] text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900"
-                  title={question}
+                  className="group flex min-h-11 items-center gap-2 rounded-md px-2.5 py-2 text-left text-[12px] text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900"
+                  title={`Ask again: ${question}`}
+                  aria-label={`Ask again: ${question}`}
                 >
-                  {question}
+                  <RotateCcw className="h-3.5 w-3.5 shrink-0 text-ink-400 group-hover:text-brand-600" aria-hidden />
+                  <span className="truncate">{question}</span>
                 </button>
               ))}
             </div>
@@ -143,7 +146,7 @@ function NavItem({ active, onClick, icon, badge, children }: NavItemProps) {
       type="button"
       onClick={onClick}
       aria-current={active ? "page" : undefined}
-      className={`flex min-h-10 items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors ${
+      className={`flex min-h-11 items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors ${
         active
           ? "bg-brand-600/10 font-semibold text-brand-700"
           : "font-medium text-ink-600 hover:bg-ink-100/80 hover:text-ink-900"

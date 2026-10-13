@@ -33,7 +33,15 @@ class FastEmbedReranker:
         self.batch_size = batch_size
 
     def score(self, question: str, passages: list[str]) -> list[float]:
-        return [float(s) for s in self._model.rerank(question, passages, batch_size=self.batch_size)]
+        # Passages of similar length go through the model together: a batch is padded to its
+        # longest passage, and mixing a 100-character row with a 1,000-character section made
+        # reranking 30 passages 45% slower (1.16 s against 0.80 s on one CPU).
+        order = sorted(range(len(passages)), key=lambda i: len(passages[i]))
+        scores = self._model.rerank(question, [passages[i] for i in order], batch_size=self.batch_size)
+        out = [0.0] * len(passages)
+        for i, score in zip(order, scores, strict=True):
+            out[i] = float(score)
+        return out
 
 
 @lru_cache

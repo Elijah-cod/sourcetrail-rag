@@ -46,7 +46,7 @@ export function DocumentsView({ documents, onUpload, onAddUrl, onDelete, busy, d
       <div>
         <h1 className="font-heading text-xl font-bold text-ink-900">Documents</h1>
         <p className="mt-1 text-[13px] text-ink-600">
-          Add files or web pages to your private workspace. Up to 10 documents, {MAX_UPLOAD_MB} MB each — deleted
+          Add files or web pages to your private workspace: up to 10 of your own, {MAX_UPLOAD_MB} MB each, on top of the demo collection. They are deleted
           automatically after 24 hours of inactivity.
         </p>
       </div>
@@ -175,7 +175,7 @@ function DocumentList({
                 <button
                   type="button"
                   onClick={() => void onDelete(doc)}
-                  className="-my-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-500 transition-colors hover:bg-danger-50 hover:text-danger-600"
+                  className="-my-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-ink-500 transition-colors hover:bg-danger-50 hover:text-danger-600"
                   aria-label={`Delete ${doc.title}`}
                   title="Delete"
                 >
