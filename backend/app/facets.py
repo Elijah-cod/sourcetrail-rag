@@ -43,9 +43,17 @@ _SPLIT = re.compile(
     r"and also|also)\s+",
     re.IGNORECASE)
 
+_SPLIT_KEEP = re.compile(f"({_SPLIT.pattern})", re.IGNORECASE)
+_WORD_JOIN = re.compile(r"\s+(?:and|or)\s+", re.IGNORECASE)
+# "Answer: how long...": a label, not part of what to search for.
+_ANSWER_LABEL = re.compile(r"^(?:answer|question|q)\s*\d*\s*:\s*", re.IGNORECASE)
+# Where a part's answer should come from, not a part of its own.
+_ATTRIBUTION = re.compile(r"^(?:according to|as (?:stated|described|given) (?:in|by)|per|from)\s", re.IGNORECASE)
+
 # A part that tells the model how to answer rather than asking about the documents.
 _INSTRUCTION = re.compile(
-    r"^(?:please\s+)?(?:preserve|keep|format|respond|reply|cite|quote|write|be|combine|answer (?:in|with|briefly)|"
+    r"^(?:please\s+)?(?:(?:using|use|from|across|with) (?:all|both|each|every|the) (?:\w+ )?(?:sources?|documents?|files?)\b|"
+    r"preserve|keep|format|respond|reply|cite|quote|write|be|combine|answer (?:in|with|briefly)|"
     r"show (?:the |your |all )?(?:work|working|arithmetic|calculations?|steps|sums|totals))\b", re.IGNORECASE)
 
 
@@ -59,7 +67,22 @@ def split_facets(question: str) -> list[str]:
     "What is the daily schedule, and what is on the opening checklist?"
         -> ["What is the daily schedule", "what is on the opening checklist"]
     """
-    parts = [p.strip(" ,.;:?!") for p in _SPLIT.split(question)]
+    pieces = _SPLIT_KEEP.split(question)            # [text, separator, text, separator, ..., text]
+    parts: list[str] = []
+    carried = ""
+    for i in range(0, len(pieces), 2):
+        text, sep = carried + pieces[i], pieces[i + 1] if i + 1 < len(pieces) else ""
+        carried = ""
+        if 0 < len(content_words(text)) < MIN_CONTENT_WORDS and _WORD_JOIN.fullmatch(sep):
+            # "Which team and count belong to Blue Heron": "and" joined two words, not two parts.
+            # Splitting there dropped "Which team" and searched only "count belong to Blue Heron".
+            carried = text + sep
+            continue
+        text = _ANSWER_LABEL.sub("", text.strip(" ,.;:?!"))
+        if parts and _ATTRIBUTION.match(text):
+            parts[-1] += f", {text}"                 # "..., according to IANA" belongs to the part before
+            continue
+        parts.append(text)
     parts = [p for p in parts if len(content_words(p)) >= MIN_CONTENT_WORDS and not _INSTRUCTION.match(p)]
     # Drop repeats ("What should X do" twice) but keep the order.
     unique: list[str] = []

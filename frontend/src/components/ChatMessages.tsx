@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CalendarRange, RefreshCw, ShieldCheck, Square, ChevronRight } from "lucide-react";
+import { AlertTriangle, CalendarRange, RefreshCw, ShieldCheck, Square } from "lucide-react";
 import type { Stage } from "@/lib/api";
 import { answerWithSources } from "@/lib/clipboard";
 import { CopyButton } from "./CopyButton";
@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AssistantMessage, Message } from "@/hooks/useChat";
 import { citationColor } from "@/lib/citations";
 import { scrollBehavior } from "@/lib/motion";
+import { messageTime } from "@/lib/time";
 import type { QueryResult } from "@/lib/types";
 import { AnswerText } from "./AnswerText";
 
@@ -35,7 +36,10 @@ export function ChatMessages({ messages, onCite, active, onRegenerate, onStop, b
         m.role === "user" ? (
           <div key={m.id} className="flex max-w-[85%] items-start gap-3 self-end sm:max-w-2xl">
             <div className="flex flex-col items-end gap-1.5">
-              <span className="text-[12px] font-medium text-ink-500">You</span>
+              <span className="flex items-baseline gap-2 text-[12px] font-medium text-ink-500">
+                You
+                <MessageTime value={m.sentAt} label="Sent at" />
+              </span>
               <div className="whitespace-pre-wrap break-words rounded-2xl rounded-tr-sm bg-brand-600 px-4 py-3 text-[14.5px] leading-relaxed text-white shadow-sm shadow-brand-600/15">
                 {m.text}
               </div>
@@ -77,6 +81,9 @@ function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-heading text-[14px] font-bold text-ink-900">SourceTrail</span>
+            {message.status === "done" && message.result?.created_at && (
+              <MessageTime value={message.result.created_at} label="Response received at" />
+            )}
             {message.status === "done" && message.result && <StatusPill result={message.result} onCite={onCite} />}
             {message.result?.filters.year && (
               <span className="inline-flex items-center gap-1 rounded-full border border-ink-200 bg-raised px-2 py-0.5 text-[12px] font-medium text-ink-600">
@@ -113,13 +120,23 @@ function AssistantBubble({ message, onCite, activeN, activeClaim, onRegenerate, 
             <div className="space-y-4">
               <AnswerText text={message.result.answer} citations={message.result.citations} onCite={onCite} activeN={activeN} activeClaim={activeClaim} />
               <Unverified values={message.result.unverified} />
-              <Timings result={message.result} />
               <Referenced result={message.result} onCite={onCite} />
             </div>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+/** When a message was sent or its answer arrived, in the visitor's own time zone and format. */
+function MessageTime({ value, label }: { value: string | number; label: string }) {
+  const time = messageTime(value);
+  if (!time) return null;
+  return (
+    <time dateTime={time.iso} aria-label={`${label} ${time.text}`} className="text-[12px] font-normal tabular-nums text-ink-400">
+      {time.text}
+    </time>
   );
 }
 
@@ -212,44 +229,6 @@ function StatusPill({ result, onCite }: { result: QueryResult; onCite: (n: numbe
   );
 }
 
-/** Stages in the order they run. Several can be absent: each question only goes through some. */
-const STAGES: { label: string; key: string; note: string }[] = [
-  { label: "Embed", key: "embed_ms", note: "turning the question into a vector" },
-  { label: "Search", key: "search_ms", note: "vector + keyword search in the database" },
-  { label: "Rerank", key: "rerank_ms", note: "cross-encoder reranking of the top results" },
-  { label: "Codes", key: "lookup_ms", note: "exact lookup of codes such as SEC-014" },
-  { label: "Parts", key: "facets_ms", note: "a separate search for each part of a multi-part question" },
-  { label: "Answer", key: "generation_ms", note: "the LLM writing the answer" },
-  { label: "Follow-up search", key: "gap_search_ms", note: "searching again for a part the first answer said was missing" },
-  { label: "Second answer", key: "gap_answer_ms", note: "the LLM answering again with what the follow-up search found" },
-  { label: "Recheck", key: "recheck_ms", note: "asking the LLM to re-read the sources for a part it called missing" },
-];
-
-/** The total time, with the per-stage figures one click away (they're for debugging). */
-function Timings({ result }: { result: QueryResult }) {
-  const stages = STAGES.filter((s) => result.timings[s.key] !== undefined);
-  const total = result.timings.total_ms ?? stages.reduce((sum, s) => sum + result.timings[s.key], 0);
-  if (stages.length === 0) return null;
-  return (
-    <details className="group border-t border-ink-100 pt-2 text-[13px]">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1.5 text-ink-500 hover:text-ink-700 [&::-webkit-details-marker]:hidden">
-        <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden />
-        Answered in <span className="font-mono font-semibold tabular-nums text-ink-700">{formatMs(total)}</span>
-        <span className="sr-only">: show the time of each step</span>
-      </summary>
-      <dl className="flex flex-wrap gap-x-5 gap-y-1 pb-1 pl-5">
-        {stages.map((s) => (
-          <div key={s.key} className="flex items-baseline gap-1.5" title={s.note}>
-            <dt className="text-ink-500">{s.label}</dt>
-            <dd className="font-mono font-semibold tabular-nums text-ink-800">{formatMs(result.timings[s.key])}</dd>
-          </div>
-        ))}
-      </dl>
-    </details>
-  );
-}
-
-const formatMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.round(ms)} ms`);
 
 /** "Referenced:" pills — one per cited document. */
 function Referenced({ result, onCite }: { result: QueryResult; onCite: (n: number) => void }) {

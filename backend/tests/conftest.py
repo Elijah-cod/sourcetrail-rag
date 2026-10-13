@@ -90,9 +90,11 @@ def db():
     with conn:
         apply_migrations(conn)
         with conn.transaction(force_rollback=True):   # undo everything the test did
-            # Start every test with an empty usage log, so rate limits and the daily LLM cap
-            # aren't affected by real app usage in this database (rolled back afterwards).
-            conn.execute("DELETE FROM usage_events")
+            # Start every test with empty usage and admin records, so rate limits, the daily LLM
+            # cap and the admin counts aren't affected by real app usage in this database
+            # (rolled back afterwards).
+            for table in ("usage_events", "query_events", "ingest_events", "admin_events", "admin_sessions"):
+                conn.execute(f"DELETE FROM {table}")
             yield conn
 
 

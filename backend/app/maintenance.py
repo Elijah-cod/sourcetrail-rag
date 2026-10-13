@@ -25,6 +25,14 @@ def cleanup(conn: psycopg.Connection, ttl_hours: int) -> tuple[int, int]:
         events = conn.execute(
             "DELETE FROM usage_events WHERE created_at < now() - interval '2 days'"
         ).rowcount
+        # The admin area's records: operational metadata only, kept briefly (see README, Privacy).
+        settings = get_settings()
+        for table, days in (("query_events", settings.telemetry_retention_days),
+                            ("ingest_events", settings.telemetry_retention_days),
+                            ("admin_events", settings.admin_event_retention_days)):
+            events += conn.execute(f"DELETE FROM {table} WHERE created_at < now() - make_interval(days => %s)",
+                                   (days,)).rowcount
+        events += conn.execute("DELETE FROM admin_sessions WHERE expires_at < now() - interval '1 day'").rowcount
     return workspaces, events
 
 

@@ -3,33 +3,32 @@
 import { useEffect, useState } from "react";
 import { checkHealth } from "@/lib/api";
 
-/** "connecting" = first check under way; "starting" = it's taking long enough that the server
- *  is probably starting up (a free server sleeps when idle and loads its models on waking). */
-export type Health = "connecting" | "starting" | "online" | "offline";
+/** What the sidebar says about availability. "connecting" only before the first answer. */
+export type Health = "connecting" | "ready" | "busy" | "reconnecting" | "unavailable";
 
-const STARTING_AFTER_MS = 2_000;
+const RETRY_MS = 10_000;          // check again sooner while something is wrong
 
-/** Asks the backend "are you OK?" now and every 30 seconds. */
+/** Asks the backend "can you answer?" now and every 30 seconds (every 10 while it can't). */
 export function useHealth(intervalMs = 30_000) {
   const [health, setHealth] = useState<Health>("connecting");
 
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    let failures = 0;
     const check = async () => {
-      // Only a slow answer means "starting"; a quick one never flashes the label.
-      const slow = setTimeout(() => {
-        if (!cancelled) setHealth((now) => (now === "online" ? now : "starting"));
-      }, STARTING_AFTER_MS);
-      const ok = await checkHealth();
-      clearTimeout(slow);
-      if (!cancelled) setHealth(ok ? "online" : "offline");
+      const status = await checkHealth();
+      if (cancelled) return;
+      // One missed check is usually a sleeping server waking up; two in a row is an outage.
+      failures = status === "unreachable" ? failures + 1 : 0;
+      setHealth(status === "unreachable" ? (failures >= 2 ? "unavailable" : "reconnecting") : status);
+      timer = setTimeout(check, status === "ready" || status === "busy" ? intervalMs : RETRY_MS);
     };
     void check();
-    const timer = setInterval(check, intervalMs);
     return () => {
       // Cleanup: runs when the component goes away, so we never update a dead component.
       cancelled = true;
-      clearInterval(timer);
+      clearTimeout(timer);
     };
   }, [intervalMs]);
 

@@ -131,3 +131,18 @@ def test_six_part_question_keeps_every_part():
 def test_an_instruction_to_combine_the_parts_is_not_a_part():
     question = "Pump KITE-11 fails during a Copper alert. Combine all required allocation and pump actions."
     assert split_facets(question) == []
+
+
+def test_six_document_question_from_the_live_check_splits_into_its_six_questions():
+    question = ("Using all six sources, answer: How long does the Cedar Lantern project keep field samples? "
+                "After how many failed login attempts does Quartz Harbor lock an account? Which team and count "
+                "belong to Blue Heron? When does the Silver Meridian relay window open? What frequency does the "
+                "Moss Echo beacon use? Why are example domains maintained, according to IANA?")
+    assert split_facets(question) == [
+        "How long does the Cedar Lantern project keep field samples",
+        "After how many failed login attempts does Quartz Harbor lock an account",
+        "Which team and count belong to Blue Heron",            # not "count belong to Blue Heron"
+        "When does the Silver Meridian relay window open",
+        "What frequency does the Moss Echo beacon use",
+        "Why are example domains maintained, according to IANA",   # not a part of its own
+    ]

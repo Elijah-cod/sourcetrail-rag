@@ -54,9 +54,8 @@ export type QueryResult = {
   citations: Citation[];
   sources: Source[];
   filters: { year?: number };
-  /** Milliseconds per stage: embed_ms, search_ms, rerank_ms, facets_ms, lookup_ms, generation_ms,
-   *  gap_search_ms, gap_answer_ms, recheck_ms. Only the stages this question went through. */
-  timings: Record<string, number>;
+  /** When the answer was ready (ISO 8601, UTC); shown in the visitor's own time zone. */
+  created_at?: string;
   /** Figures or codes in the answer that no source contains (worth checking). */
   unverified?: string[];
 };
@@ -104,3 +103,67 @@ export type RegressionResults = {
 };
 
 export type Benchmarks = { retrieval: RetrievalResults | null; regression: RegressionResults | null };
+
+// ---------- admin area ----------
+
+export type AdminOverview = {
+  service: {
+    database: "ok" | "down";
+    models: string;
+    llm: string;
+    checked_at: string;
+    started_at: string;
+    uptime_s: number;
+    startup_ms: Record<string, number> | null;
+  };
+  build: {
+    version: string;
+    revision: string | null;
+    commit: string | null;
+    llm_model: string;
+    embedding_model: string;
+    reranker_model: string;
+  };
+  period_days: number;
+  queries: {
+    total: number;
+    answered: number;
+    refused: number;
+    missing_parts: number;
+    errors: number;
+    p50_ms: number | null;
+    p95_ms: number | null;
+  };
+  ingestion: { ok: number; failed: number; warnings: number };
+  failed_logins: number;
+  benchmark_run_at: string | null;
+  retention: { documents_hours: number; telemetry_days: number; admin_events_days: number };
+};
+
+/** One answered question: outcome and time per stage, never its text. */
+export type QueryEvent = {
+  id: string;
+  created_at: string;
+  mode: Mode;
+  status: "answered" | "not_found" | "llm_unavailable" | "error";
+  parts: number;
+  missing: number;
+  sources: number;
+  citations: number;
+  total_ms: number | null;
+  timings: Record<string, number>;
+  error: string | null;
+};
+
+export type IngestEvent = {
+  id: string;
+  created_at: string;
+  source_type: string;
+  ok: boolean;
+  chunks: number;
+  characters: number;
+  duration_ms: number | null;
+  warning: string | null;
+  error: string | null;
+  expires_at: string | null;
+};

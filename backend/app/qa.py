@@ -10,14 +10,15 @@ import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID
 
 import psycopg
 
+from app import verify
 from app.config import get_settings
 from app.embed import Embedder
-from app import verify
 from app.facets import content_words, split_facets, with_context
 from app.generate import NOT_FOUND, Citation, generate_answer
 from app.identifiers import (MAX_FOLLOWED, boundary, exact_matches, find_identifiers, is_document_code,
@@ -49,6 +50,9 @@ class Answer:
     filters: dict = field(default_factory=dict)              # e.g. {"year": 2024} if one was applied
     timings: dict = field(default_factory=dict)              # milliseconds per stage
     unverified: list[str] = field(default_factory=list)      # figures/codes found in no source
+    parts: int = 0                                            # parts the question was split into
+    missing: int = 0                                          # ...and how many found no passage
+    created_at: datetime | None = None                        # when the answer was ready (UTC)
 
 
 # After reranking, passages scoring far below the best one are noise, not support.
@@ -139,7 +143,12 @@ def gather_sources(conn: psycopg.Connection, embedder: Embedder, reranker: Reran
         # "which has the most units" is answered by the table, whatever its facet search found.
         uncovered = [part for part in uncovered if not any(_shares_words(part, h) for h in table)]
         rest = [h for h in hits if h.document_id not in {t.document_id for t in table}]
-        hits = table + rest[: max(0, top_k - len(table))]
+        # Each part's own passage stays: trimming to top_k here dropped the IANA page and the PDF
+        # from a six-document question once its CSV part brought in the whole table.
+        required = [h for h in rest if "facet" in h.ranks]
+        others = [h for h in rest if "facet" not in h.ranks]
+        room = max(0, (MAX_SOURCES if facets else top_k) - len(table) - len(required))
+        hits = table + [h for h in rest if h in required or h in others[:room]]
 
     # Don't spend an LLM call (and free quota) when nothing relevant was found.
     # Only reranker scores are 0..1 probabilities, so the threshold applies to that mode.
@@ -319,6 +328,7 @@ def ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None,
     started = time.perf_counter()
     answer = _ask(conn, embedder, reranker, llm, question, workspace_ids, mode, min_relevance, top_k, progress)
     answer.timings["total_ms"] = (time.perf_counter() - started) * 1000
+    answer.created_at = datetime.now(timezone.utc)
     return answer
 
 
@@ -326,6 +336,14 @@ def _ask(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None
          question: str, workspace_ids: list[UUID], mode: Mode, min_relevance: float | None, top_k: int,
          progress: Progress) -> Answer:
     found = gather_sources(conn, embedder, reranker, question, workspace_ids, mode, min_relevance, top_k, progress)
+    answer = _answer(conn, embedder, reranker, llm, question, workspace_ids, mode, min_relevance, found, progress)
+    answer.parts, answer.missing = len(found.facets), len(found.uncovered)
+    return answer
+
+
+def _answer(conn: psycopg.Connection, embedder: Embedder, reranker: Reranker | None, llm: LLMClient,
+            question: str, workspace_ids: list[UUID], mode: Mode, min_relevance: float | None, found: Sources,
+            progress: Progress) -> Answer:
     if found.final is not None:
         return found.final
     hits, parsed, timings = found.hits, found.parsed, found.timings

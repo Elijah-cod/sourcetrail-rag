@@ -72,8 +72,8 @@ uv run python -m eval.regression.run_regression --answers  # also grades the LLM
 Results are written to `backend/eval/regression/results.md`. To rebuild the fixtures:
 `uv run --with reportlab python -m eval.regression.make_fixtures`.
 
-The app's **Benchmarks** page shows the latest results of both scripts (they also write
-`results.json` next to `results.md`).
+The admin area's **Benchmarks** section shows the latest results of both scripts (they also
+write `results.json` next to `results.md`).
 
 ## Continuous integration
 
@@ -123,13 +123,68 @@ and loads the models (the image loads them before serving, so no question pays f
 sidebar shows "Starting up…" meanwhile). Stored images past Artifact Registry's free 0.5 GB cost about $0.10
 per GB a month, so delete old ones now and then.
 
+**Admin area.** `/admin` is not linked from the app. It asks for one password, then shows the
+service status, benchmarks, time per stage for recent questions, upload results and CSV
+exports. It stays closed (the sign-in answers "Admin sign-in isn't available.") until two
+settings exist; make them on your own machine:
+
+```bash
+cd backend
+uv run python -m app.admin hash-password   # asks for the password (12+ characters), prints scrypt$…
+uv run python -m app.admin new-secret      # prints a random session secret
+```
+
+In Cloud Run > Edit & deploy new revision > Variables & Secrets, add `ADMIN_PASSWORD_HASH`
+(the whole `scrypt$…` line) and `ADMIN_SESSION_SECRET`. Prefer **Reference a secret** (Secret
+Manager) for both; if you set them with `gcloud`, single-quote the hash, because the shell
+expands `$`. The password itself is never stored anywhere. Sessions last 12 hours in an
+HttpOnly, SameSite=Strict cookie, and five wrong passwords from one address lock sign-in for
+15 minutes.
+
+*Emergency procedure.*
+
+- **Sign everyone out now** (a lost laptop, a shared screen): set a new `ADMIN_SESSION_SECRET`.
+  Every existing session stops working at the next request.
+- **Change the password**: make a new hash, replace `ADMIN_PASSWORD_HASH`, deploy, then also
+  rotate the secret so sessions opened with the old password end.
+- **Forgot the password**: there is no reset link; make a new hash and deploy it.
+- **The admin page says sign-in isn't available**: one of the two settings is missing or
+  empty. The service log says which (`admin area closed: …`). Visitors are not affected.
+- **Many failed sign-ins**: rotate the password if it may have leaked. Failed attempts are
+  in the overview and in the log (below).
+
+*What is kept, and for how long.* Visitors' questions and answers are never stored.
+
+| Data | Contains | Deleted after |
+| --- | --- | --- |
+| Uploaded documents and pages | the text, for answering | 24 hours without use (`WORKSPACE_TTL_HOURS`) |
+| Question records (`query_events`) | outcome, mode, counts, time per stage; no text | 7 days (`TELEMETRY_RETENTION_DAYS`) |
+| Upload records (`ingest_events`) | file type, size, chunk count, warning or error category; no content | 7 days |
+| Admin sign-in records (`admin_events`) | sign-in, failure, sign-out, expiry, and the client address for rate limiting | 30 days (`ADMIN_EVENT_RETENTION_DAYS`) |
+| Admin sessions | a hash of the session token and its expiry | a day after expiry |
+
+The hourly cleanup (`app/maintenance.py`) does the deleting. CSV exports are copies: delete
+them when you're done.
+
 **Monitoring.** Each question prints one JSON line, which Cloud Logging stores as a
 structured entry: its outcome (`status`), `total_ms` and each stage (`embed_ms`, `search_ms`,
 `rerank_ms`, `facets_ms`, `generation_ms`...), never the question itself. Each start prints an
 `event: "startup"` line with the model load times. In Logs Explorer, filter on
 `jsonPayload.event="query"`; under Logging > Log-based metrics, a distribution metric on
-`jsonPayload.total_ms` charts answer times and can drive an alert. `/health` reports the
-database and the start-up times.
+`jsonPayload.total_ms` charts answer times and can drive an alert. `/health` only says `ready`, `busy` or
+`unavailable` (503); model and build details are in the admin overview.
+
+*Minimal alerts* (Monitoring > Alerting > Create policy, with an email channel):
+
+- **The app is down**: an uptime check on `https://…run.app/health`, alerting after two
+  failures in a row.
+- **Answers are failing**: a log-based counter on `jsonPayload.event="query" AND
+  jsonPayload.status=("error" OR "llm_unavailable")`, alerting above 5 in 15 minutes. Usually a
+  Groq quota or key problem.
+- **Someone is guessing the admin password**: a log-based counter on
+  `jsonPayload.event="admin" AND jsonPayload.kind="login_failed"`, alerting above 10 in an hour.
+- **Slow answers**: the `total_ms` distribution above, alerting when its 95th percentile stays
+  over 20 seconds for 30 minutes.
 
 **Alternative: Hugging Face Spaces.** Docker Spaces now need a PRO plan. With one, create a
 Docker Space, add the same four settings in its settings, then add the GitHub secret

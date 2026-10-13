@@ -1,0 +1,4 @@
+Source test
+
+The Cedar Lantern project keeps its field samples for 17 days before they are archived.
+Samples are labelled with the collection date and the site code.

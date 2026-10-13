@@ -8,16 +8,18 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import db
+from app.admin_api import router as admin_router
 from app.api import router
 from app.config import get_settings
 from app.limits import RateLimited
 from app.maintenance import cleanup
 from app.monitoring import log_event
+from app.telemetry import busy
 
 log = logging.getLogger("sourcetrail")
 
@@ -83,6 +85,7 @@ app = FastAPI(
 )
 # Every API route lives under /api, leaving "/" free for the web page.
 app.include_router(router, prefix="/api")
+app.include_router(admin_router, prefix="/api/admin")
 
 
 # Searching and indexing allocate and free a few hundred MB in the model runtime. glibc keeps
@@ -109,9 +112,23 @@ def rate_limited(request: Request, exc: RateLimited) -> JSONResponse:
 
 @app.get("/health")
 @app.get("/api/health")
-def health() -> dict:
-    """`startup` says how long this server took to load its models (empty: they load on first use)."""
-    return {"status": "ok", "database": "ok" if db.ping() else "down", "startup": STARTUP}
+def health(response: Response) -> dict:
+    """For visitors and uptime checks: ready, busy (still answering) or unavailable. Versions,
+    model names and start-up times are in the admin overview, not here."""
+    if not db.ping():
+        response.status_code = 503
+        return {"status": "unavailable"}
+    return {"status": "busy" if busy() else "ready"}
+
+
+@app.middleware("http")
+async def private_admin(request: Request, call_next):
+    """Admin pages and data: never cached by a browser or proxy, never indexed."""
+    response = await call_next(request)
+    if request.url.path.startswith(("/admin", "/api/admin")):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
 
 
 # Serve the built frontend (if it has been built). Mounted last, so /api/* and /health
@@ -120,4 +137,9 @@ _frontend = Path(get_settings().frontend_dir)
 if not _frontend.is_absolute():
     _frontend = Path(__file__).resolve().parent.parent / _frontend
 if _frontend.is_dir():
+    @app.get("/admin", include_in_schema=False)
+    def admin_page() -> FileResponse:
+        """The admin shell: a sign-in form until /api/admin/session says otherwise. It holds no data."""
+        return FileResponse(_frontend / "admin.html")
+
     app.mount("/", StaticFiles(directory=_frontend, html=True), name="frontend")
